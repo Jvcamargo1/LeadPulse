@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Kanban - LeadPulse{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-end border-b border-gray-200 pb-4">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-900">Pipeline de Vendas</h2>
+        <p class="text-gray-500 mt-1">Acompanhe suas oportunidades e sugestões da IA.</p>
+    </div>
+    <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        Nova Oportunidade
+    </button>
+</div>
+
+<!-- Quadro Kanban (Scroll Horizontal) -->
+<div class="flex overflow-x-auto gap-6 pb-6 min-h-[70vh] items-start">
+    {% for estagio, oportunidades in estagios.items() %}
+    <!-- Coluna do Kanban -->
+    <div class="bg-gray-100 rounded-xl w-80 flex-shrink-0 flex flex-col max-h-full shadow-sm border border-gray-200">
+        
+        <!-- Header da Coluna -->
+        <div class="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-xl">
+            <h3 class="font-bold text-gray-700 uppercase tracking-wide text-sm">{{ estagio }}</h3>
+            <span class="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-1 rounded-full">{{ oportunidades|length }}</span>
+        </div>
+        
+        <!-- Área dos Cards -->
+        <div class="p-3 flex-1 overflow-y-auto space-y-3">
+            {% for op in oportunidades %}
+            <!-- Card da Oportunidade -->
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group">
+                <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-semibold text-gray-900 truncate pr-2" title="{{ op.lead.nome if op.lead else 'Desconhecido' }}">
+                        {{ op.lead.nome if op.lead else 'Desconhecido' }}
+                    </h4>
+                    
+                    <!-- Badge de Temperatura (IA) -->
+                    {% if op.temperatura_ia %}
+                        <span class="text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap
+                            {% if op.temperatura_ia|lower == 'quente' %}bg-red-100 text-red-700 border border-red-200
+                            {% elif op.temperatura_ia|lower == 'morno' %}bg-amber-100 text-amber-700 border border-amber-200
+                            {% else %}bg-blue-100 text-blue-700 border border-blue-200{% endif %}">
+                            {{ op.temperatura_ia }}
+                        </span>
+                    {% endif %}
+                </div>
+                
+                <div class="text-lg font-bold text-emerald-600 mb-3">
+                    R$ {{ "%.2f"|format(op.valor)|replace('.', ',') if op.valor else "0,00" }}
+                </div>
+                
+                <!-- Status IA -->
+                <div class="text-xs border-t border-gray-100 pt-3">
+                    {% if op.status_conversa_ia %}
+                    <div class="flex items-start text-gray-600">
+                        <svg class="w-4 h-4 text-indigo-500 mr-1 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span class="line-clamp-2" title="{{ op.status_conversa_ia }}">{{ op.status_conversa_ia }}</span>
+                    </div>
+                    {% else %}
+                    <div class="flex items-center text-gray-400">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span>Aguardando análise IA...</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <!-- Dropzone vazia -->
+            <div class="text-center p-6 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 text-sm">
+                Arraste cards ou adicione novas oportunidades.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

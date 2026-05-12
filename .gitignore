@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+postgres_data/
+redis_data/
+alembic/versions/*.py
