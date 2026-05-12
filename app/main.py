@@ -94,7 +94,7 @@ async def ui_modal_nova_oportunidade(
     leads = result.scalars().all()
     
     return templates.TemplateResponse(
-        "partials/modal_nova_oportunidade.html", 
+        "modal_nova_oportunidade.html", 
         {"request": request, "leads": leads}
     )
 

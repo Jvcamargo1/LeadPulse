@@ -1,6 +1,6 @@
 import uuid
 from typing import List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -155,7 +155,7 @@ async def _task_analisar_ia_background(
                     tenant_id=tenant_id,
                     oportunidade_id=oportunidade.id,
                     status="PENDENTE",
-                    data_limite=datetime.now(timezone.utc),
+                    data_limite=datetime.now(timezone.utc) + timedelta(days=1),
                     rascunho_sugerido_ia=rascunho
                 )
                 db.add(nova_tarefa)

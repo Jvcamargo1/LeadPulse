@@ -14,6 +14,16 @@ class UserRole(str, Enum):
     MANAGER = "MANAGER"
     SALES = "SALES"
 
+class RemetenteRole(str, Enum):
+    LEAD = "LEAD"
+    VENDEDOR = "VENDEDOR"
+    SISTEMA = "SISTEMA"
+
+class TipoMensagem(str, Enum):
+    TEXTO = "TEXTO"
+    WHATSAPP = "WHATSAPP"
+    EMAIL = "EMAIL"
+
 class Tenant(Base):
     __tablename__ = "tenant"
     
@@ -37,6 +47,11 @@ class Usuario(Base):
     # Relacionamentos
     tenant: Mapped["Tenant"] = relationship(back_populates="usuarios")
     oportunidades: Mapped[List["Oportunidade"]] = relationship(back_populates="vendedor")
+    
+    # Garante que um e-mail seja único DENTRO de uma mesma empresa
+    __table_args__ = (
+        Index("ix_usuario_tenant_email", "tenant_id", "email", unique=True),
+    )
 
 class Lead(Base):
     __tablename__ = "lead"
@@ -82,8 +97,8 @@ class Mensagem(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     oportunidade_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("oportunidade.id", ondelete="CASCADE"), nullable=False, index=True)
-    remetente: Mapped[str] = mapped_column(String, nullable=False)
-    tipo: Mapped[str] = mapped_column(String, nullable=False)
+    remetente: Mapped[RemetenteRole] = mapped_column(String, nullable=False)
+    tipo: Mapped[TipoMensagem] = mapped_column(String, nullable=False)
     conteudo_texto: Mapped[str] = mapped_column(Text, nullable=False)
     data_envio: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     analisada_pela_ia: Mapped[bool] = mapped_column(Boolean, default=False)
