@@ -1,14 +1,21 @@
 import asyncio
 import uuid
 from datetime import datetime, timezone, timedelta
+from sqlalchemy import delete
 from app.core.database import AsyncSessionLocal
 from app.models import Tenant, Usuario, UserRole, Lead, Oportunidade
-from app.core.dependencies import MOCK_TENANT_ID
+from app.core.security import get_password_hash
+
+MOCK_TENANT_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 
 async def seed_db():
     print("Iniciando a população do banco de dados...")
     
     async with AsyncSessionLocal() as db:
+        # 0. Limpa os dados de teste antigos para evitar erro de duplicidade
+        await db.execute(delete(Tenant).where(Tenant.id == MOCK_TENANT_ID))
+        await db.commit()
+        
         # 1. Cria a Empresa (Tenant) com o MOCK_TENANT_ID que já usamos no código
         tenant = Tenant(
             id=MOCK_TENANT_ID,
@@ -23,6 +30,7 @@ async def seed_db():
             tenant_id=MOCK_TENANT_ID,
             nome="João Vendedor",
             email="joao@techcorp.com",
+            hashed_password=get_password_hash("123456"),
             role=UserRole.SALES
         )
         db.add(vendedor)

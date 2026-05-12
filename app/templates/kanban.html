@@ -8,14 +8,22 @@
         <h2 class="text-3xl font-bold text-gray-900">Pipeline de Vendas</h2>
         <p class="text-gray-500 mt-1">Acompanhe suas oportunidades e sugestões da IA.</p>
     </div>
-    <button 
-        hx-get="/ui/oportunidades/modal-nova" 
-        hx-target="#modal-container"
-        class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center"
-    >
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-        Nova Oportunidade
-    </button>
+    <div class="flex gap-3">
+        <button 
+            hx-post="/api/logout" 
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center"
+        >
+            Sair
+        </button>
+        <button 
+            hx-get="/ui/oportunidades/modal-nova" 
+            hx-target="#modal-container"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center"
+        >
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Nova Oportunidade
+        </button>
+    </div>
 </div>
 
 <!-- Quadro Kanban (Scroll Horizontal) -->

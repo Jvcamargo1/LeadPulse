@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Login - LeadPulse{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[80vh]">
+    <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200 w-full max-w-md">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-indigo-600">LeadPulse</h1>
+            <p class="text-gray-500 mt-2">Faça login para acessar seu pipeline.</p>
+        </div>
+
+        <!-- Container de Erro Invisível -->
+        <div id="error-message" class="hidden bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 mb-6 text-sm"></div>
+
+        <form hx-post="/api/login" hx-swap="none" class="space-y-5">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                <input type="email" name="username" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="joao@techcorp.com">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                <input type="password" name="password" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="••••••••">
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors">
+                Entrar no Sistema
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Captura o erro 400 da nossa API e exibe a mensagem na interface
+    document.body.addEventListener('htmx:responseError', function(evt) {
+        var errorDiv = document.getElementById('error-message');
+        var response = JSON.parse(evt.detail.xhr.response);
+        errorDiv.innerText = response.detail || "Erro ao fazer login.";
+        errorDiv.classList.remove('hidden');
+    });
+</script>
+{% endblock %}

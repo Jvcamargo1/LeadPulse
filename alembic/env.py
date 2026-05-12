@@ -1,4 +1,5 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -20,6 +21,11 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 from app.models import Base
 target_metadata = Base.metadata
+
+# Sobrescreve a URL do alembic.ini com a variável de ambiente, se existir
+db_url = os.getenv("DATABASE_URL")
+if db_url:
+    config.set_main_option("sqlalchemy.url", db_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

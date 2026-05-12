@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Canais - LeadPulse{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-end border-b border-gray-200 pb-4">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-900">Canais de Comunicação</h2>
+        <p class="text-gray-500 mt-1">Conecte seu WhatsApp (Z-API) e e-mail (Gmail) para que a IA atue nas conversas.</p>
+    </div>
+    <a href="/" class="text-indigo-600 hover:underline">← Voltar ao Kanban</a>
+</div>
+
+<!-- Lista de canais já cadastrados -->
+<div class="mb-10">
+    <h3 class="text-lg font-semibold text-gray-800 mb-3">Conectados</h3>
+    {% if canais %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for canal in canais %}
+        <div class="bg-white border border-gray-200 rounded-lg p-4 flex justify-between items-center">
+            <div>
+                <div class="flex items-center gap-2">
+                    {% if canal.tipo.value == 'WHATSAPP_ZAPI' %}
+                        <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">WhatsApp</span>
+                    {% else %}
+                        <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">Gmail</span>
+                    {% endif %}
+                    <span class="text-sm text-gray-500">
+                        {{ "Ativo" if canal.ativo else "Inativo" }}
+                    </span>
+                </div>
+                <div class="font-mono text-gray-900 mt-1">{{ canal.identificador }}</div>
+            </div>
+            <button
+                hx-delete="/ui/canais/{{ canal.id }}"
+                hx-confirm="Remover este canal? As mensagens já recebidas serão mantidas."
+                class="text-red-600 hover:text-red-800 text-sm">
+                Remover
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-gray-500 text-sm italic">Nenhum canal conectado ainda.</p>
+    {% endif %}
+</div>
+
+<!-- Formulário WhatsApp Z-API -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div class="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 class="text-lg font-bold text-gray-900 mb-1">📱 WhatsApp via Z-API</h3>
+        <p class="text-sm text-gray-500 mb-4">
+            Crie uma instância em <a href="https://z-api.io" target="_blank" class="text-indigo-600 hover:underline">z-api.io</a>, escaneie o QR Code com o WhatsApp do celular e cole os dados abaixo.
+        </p>
+        <form hx-post="/ui/canais/whatsapp" class="space-y-3">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Número (com DDI)</label>
+                <input name="identificador" required placeholder="+5511999999999"
+                       class="w-full border rounded-lg p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Instance ID</label>
+                <input name="instance_id" required class="w-full border rounded-lg p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Token</label>
+                <input name="token" type="password" required class="w-full border rounded-lg p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Client-Token (opcional)</label>
+                <input name="client_token" type="password" class="w-full border rounded-lg p-2">
+            </div>
+            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium w-full">
+                Conectar WhatsApp
+            </button>
+        </form>
+    </div>
+
+    <!-- Formulário Gmail -->
+    <div class="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 class="text-lg font-bold text-gray-900 mb-1">📧 Gmail (IMAP/SMTP)</h3>
+        <p class="text-sm text-gray-500 mb-4">
+            Use uma <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-indigo-600 hover:underline">senha de aplicativo</a> do Google (não a senha normal!). Requer 2FA ativado na conta.
+        </p>
+        <form hx-post="/ui/canais/gmail" class="space-y-3">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                <input name="email" type="email" required placeholder="vendas@empresa.com"
+                       class="w-full border rounded-lg p-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Senha de aplicativo</label>
+                <input name="app_password" type="password" required placeholder="xxxx xxxx xxxx xxxx"
+                       class="w-full border rounded-lg p-2">
+            </div>
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium w-full">
+                Conectar Gmail
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Caixinha de instruções dos webhooks -->
+<div class="mt-10 p-5 bg-amber-50 border border-amber-200 rounded-lg">
+    <h4 class="font-bold text-amber-900 mb-2">⚙️ Configuração do Webhook Z-API</h4>
+    <p class="text-sm text-amber-800 mb-2">
+        Após conectar o WhatsApp, configure este endereço no painel da Z-API (em "On Message Received"):
+    </p>
+    <code class="block bg-white p-2 rounded border border-amber-300 text-xs break-all">
+        {{ request.url_for('webhook_whatsapp', tenant_id=tenant_id) if tenant_id is defined else 'https://SEU_DOMINIO/webhooks/whatsapp/{tenant_id}?secret=SEU_SECRET' }}
+    </code>
+</div>
+{% endblock %}
