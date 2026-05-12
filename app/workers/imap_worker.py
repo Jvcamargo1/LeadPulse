@@ -21,6 +21,7 @@ from app.services.routing import (
     registrar_mensagem_recebida,
 )
 from app.api.routes.oportunidades import _task_analisar_ia_background
+from app.core.cache import invalidar_kanban
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,9 @@ async def _processar_canal_gmail(canal_id) -> None:
             canal.ultimo_uid_lido = str(novo_uid)
         
         await db.commit()
+        
+        if oportunidades_para_analisar:
+            await invalidar_kanban(canal.tenant_id)
         
         # Dispara análises IA depois do commit (evita lock no banco)
         for op_id in set(oportunidades_para_analisar):

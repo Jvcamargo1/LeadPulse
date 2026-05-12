@@ -10,6 +10,7 @@ from app.models import Oportunidade, Mensagem, Tarefa_FollowUp
 from app.schemas.oportunidade import OportunidadeCreate, OportunidadeUpdate, OportunidadeResponse
 from app.core.dependencies import get_db, get_current_tenant_id
 from app.services.groq_service import analisar_interacao_lead
+from app.core.cache import invalidar_kanban
 
 router = APIRouter(prefix="/oportunidades", tags=["Oportunidades"])
 
@@ -26,6 +27,7 @@ async def create_oportunidade(
     db.add(nova_oportunidade)
     await db.commit()
     await db.refresh(nova_oportunidade)
+    await invalidar_kanban(tenant_id)
     return nova_oportunidade
 
 @router.get("/", response_model=List[OportunidadeResponse])
@@ -84,6 +86,7 @@ async def update_oportunidade(
     db.add(oportunidade)
     await db.commit()
     await db.refresh(oportunidade)
+    await invalidar_kanban(tenant_id)
     return oportunidade
 
 @router.delete("/{oportunidade_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -104,6 +107,7 @@ async def delete_oportunidade(
     
     await db.delete(oportunidade)
     await db.commit()
+    await invalidar_kanban(tenant_id)
     return None
 
 async def _task_analisar_ia_background(
@@ -161,6 +165,8 @@ async def _task_analisar_ia_background(
                 db.add(nova_tarefa)
 
         await db.commit()
+        # IA mudou temperatura/status — Kanban precisa refletir
+        await invalidar_kanban(tenant_id)
 
 @router.post("/{oportunidade_id}/analisar-ia", status_code=status.HTTP_202_ACCEPTED)
 async def analisar_oportunidade_com_ia(

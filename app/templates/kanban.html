@@ -1,112 +1,380 @@
 {% extends "base.html" %}
+{% set active_page = 'kanban' %}
+{% block title %}Pipeline · LeadPulse{% endblock %}
 
-{% block title %}Kanban - LeadPulse{% endblock %}
+{% block extra_head %}
+<style>
+    /* Container do Kanban — quebra do padding lateral pra dar respiro */
+    .kanban-board {
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        padding: 0 40px 40px;
+        margin: 0 -40px;
+        scroll-snap-type: x proximity;
+        min-height: calc(100vh - 200px);
+    }
+    .kanban-board::-webkit-scrollbar { height: 12px; }
+
+    .kanban-column {
+        flex: 0 0 320px;
+        scroll-snap-align: start;
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 200px);
+    }
+
+    .column-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 0 4px 14px;
+        position: sticky;
+        top: 0;
+        background: var(--bg-page);
+        z-index: 2;
+    }
+    .column-title {
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--ink-900);
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .column-title .marker {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+    .column-count {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--ink-400);
+        font-variant-numeric: tabular-nums;
+    }
+    .column-total {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--ink-500);
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+    }
+
+    /* Cores das colunas — markers sutis */
+    .col-prospeccao .marker     { background: var(--ink-300); }
+    .col-qualificacao .marker   { background: #6B8AAF; }
+    .col-proposta .marker       { background: #C2A85C; }
+    .col-negociacao .marker     { background: var(--accent-500); }
+    .col-ganho .marker          { background: #3F8B5E; }
+    .col-perdido .marker        { background: var(--ink-700); }
+
+    .column-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        scrollbar-gutter: stable;
+    }
+
+    /* CARD */
+    .deal-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        border-radius: var(--radius-md);
+        padding: 14px 14px 12px;
+        cursor: grab;
+        position: relative;
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: var(--shadow-xs);
+    }
+    .deal-card:hover {
+        border-color: var(--ink-300);
+        box-shadow: var(--shadow-md);
+        transform: translateY(-1px);
+    }
+    .deal-card:active { cursor: grabbing; }
+
+    /* Borda lateral colorida indicando temperatura */
+    .deal-card::before {
+        content: '';
+        position: absolute;
+        left: -1px; top: 12px; bottom: 12px;
+        width: 3px;
+        border-radius: 0 2px 2px 0;
+        background: var(--ink-200);
+    }
+    .deal-card.temp-quente::before { background: var(--temp-quente-fg); }
+    .deal-card.temp-morno::before  { background: var(--temp-morno-fg); }
+    .deal-card.temp-frio::before   { background: var(--temp-frio-fg); }
+
+    .deal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .deal-name {
+        font-weight: 600;
+        font-size: 13.5px;
+        color: var(--ink-900);
+        line-height: 1.3;
+        letter-spacing: -0.005em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+    }
+
+    .deal-value {
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 500;
+        color: var(--ink-900);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        margin: 6px 0 10px;
+        font-variation-settings: "opsz" 96;
+    }
+    .deal-value .currency {
+        font-size: 12px;
+        color: var(--ink-400);
+        font-weight: 400;
+        margin-right: 4px;
+        font-family: var(--font-body);
+    }
+    .deal-value.zero { color: var(--ink-300); }
+
+    .deal-ia {
+        font-size: 11.5px;
+        color: var(--ink-500);
+        line-height: 1.4;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--ink-100);
+    }
+    .deal-ia svg {
+        flex-shrink: 0;
+        margin-top: 1px;
+        color: var(--accent-500);
+        width: 12px;
+        height: 12px;
+    }
+    .deal-ia-empty {
+        color: var(--ink-300);
+        font-style: italic;
+    }
+
+    /* Drag ghost */
+    .sortable-ghost {
+        opacity: 0.4;
+        background: var(--bg-subtle);
+    }
+    .sortable-chosen {
+        box-shadow: var(--shadow-lg) !important;
+        transform: rotate(1deg) scale(1.02);
+    }
+
+    /* Empty drop zone */
+    .empty-zone {
+        border: 1px dashed var(--ink-200);
+        border-radius: var(--radius-md);
+        padding: 20px 12px;
+        text-align: center;
+        font-size: 12px;
+        color: var(--ink-400);
+        font-style: italic;
+    }
+
+    /* Indicador de cache (sutil canto inferior) */
+    .cache-indicator {
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--ink-400);
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        padding: 4px 8px;
+        border-radius: var(--radius-xs);
+        opacity: 0.7;
+        z-index: 50;
+    }
+    .cache-indicator .dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+    .cache-indicator.hit .dot { background: #3F8B5E; }
+    .cache-indicator.miss .dot { background: var(--accent-500); }
+
+    /* Stats no header */
+    .pipeline-stats {
+        display: flex;
+        gap: 28px;
+        align-items: baseline;
+    }
+    .stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .stat-label {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--ink-400);
+    }
+    .stat-value {
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
+        font-variation-settings: "opsz" 96;
+    }
+    .stat-value .currency {
+        font-family: var(--font-body);
+        font-size: 11px;
+        color: var(--ink-400);
+        font-weight: 400;
+        margin-right: 3px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="mb-8 flex justify-between items-end border-b border-gray-200 pb-4">
+{% set total_geral = namespace(soma=0, count=0) %}
+{% for estagio, ops in estagios.items() %}{% for op in ops %}{% if op.valor %}{% set total_geral.soma = total_geral.soma + op.valor %}{% endif %}{% set total_geral.count = total_geral.count + 1 %}{% endfor %}{% endfor %}
+
+<header class="page-header">
     <div>
-        <h2 class="text-3xl font-bold text-gray-900">Pipeline de Vendas</h2>
-        <p class="text-gray-500 mt-1">Acompanhe suas oportunidades e sugestões da IA.</p>
+        <h1 class="page-title">Pipeline <span class="accent">de vendas</span></h1>
+        <p class="page-subtitle">Acompanhe suas oportunidades em tempo real. Arraste cards para mudar de estágio.</p>
     </div>
-    <div class="flex gap-3">
-        <button 
-            hx-post="/api/logout" 
-            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center"
-        >
-            Sair
-        </button>
-        <button 
-            hx-get="/ui/oportunidades/modal-nova" 
+    <div class="flex gap-4 items-center">
+        <div class="pipeline-stats">
+            <div class="stat">
+                <span class="stat-label">Negócios ativos</span>
+                <span class="stat-value">{{ total_geral.count }}</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Valor em pipeline</span>
+                <span class="stat-value"><span class="currency">R$</span>{{ "{:,.0f}".format(total_geral.soma).replace(",", ".") }}</span>
+            </div>
+        </div>
+        <button
+            hx-get="/ui/oportunidades/modal-nova"
             hx-target="#modal-container"
-            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center"
-        >
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-            Nova Oportunidade
+            class="btn btn-primary">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"/></svg>
+            Nova oportunidade
         </button>
     </div>
-</div>
+</header>
 
-<!-- Quadro Kanban (Scroll Horizontal) -->
-<div class="flex overflow-x-auto gap-6 pb-6 min-h-[70vh] items-start">
-    {% for estagio, oportunidades in estagios.items() %}
-    <!-- Coluna do Kanban -->
-    <div class="bg-gray-100 rounded-xl w-80 flex-shrink-0 flex flex-col max-h-full shadow-sm border border-gray-200">
-        
-        <!-- Header da Coluna -->
-        <div class="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-xl">
-            <h3 class="font-bold text-gray-700 uppercase tracking-wide text-sm">{{ estagio }}</h3>
-            <span class="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-1 rounded-full">{{ oportunidades|length }}</span>
-        </div>
-        
-        <!-- Área dos Cards -->
-        <div class="p-3 flex-1 overflow-y-auto space-y-3 sortable-column min-h-[100px]" data-estagio="{{ estagio }}">
-            {% for op in oportunidades %}
-            <!-- Card da Oportunidade -->
-            <div data-id="{{ op.id }}" class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group">
-                <div class="flex justify-between items-start mb-2">
-                    <h4 class="font-semibold text-gray-900 truncate pr-2" title="{{ op.lead.nome if op.lead else 'Desconhecido' }}">
-                        {{ op.lead.nome if op.lead else 'Desconhecido' }}
-                    </h4>
-                    
-                    <!-- Badge de Temperatura (IA) -->
-                    {% if op.temperatura_ia %}
-                        <span class="text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap
-                            {% if op.temperatura_ia|lower == 'quente' %}bg-red-100 text-red-700 border border-red-200
-                            {% elif op.temperatura_ia|lower == 'morno' %}bg-amber-100 text-amber-700 border border-amber-200
-                            {% else %}bg-blue-100 text-blue-700 border border-blue-200{% endif %}">
-                            {{ op.temperatura_ia }}
-                        </span>
-                    {% endif %}
+<div class="page-body" style="padding-bottom: 0;">
+    <div class="kanban-board">
+        {% set col_class_map = {
+            'Prospecção': 'col-prospeccao',
+            'Qualificação': 'col-qualificacao',
+            'Proposta': 'col-proposta',
+            'Negociação': 'col-negociacao',
+            'Fechado Ganho': 'col-ganho',
+            'Fechado Perdido': 'col-perdido'
+        } %}
+
+        {% for estagio, oportunidades in estagios.items() %}
+        {% set col_cls = col_class_map.get(estagio, '') %}
+        {% set total_col = oportunidades | sum(attribute='valor', start=0) if oportunidades and oportunidades[0].valor is defined else 0 %}
+
+        <div class="kanban-column {{ col_cls }}">
+            <div class="column-header">
+                <div class="column-title">
+                    <span class="marker"></span>
+                    {{ estagio }}
+                    <span class="column-count">{{ oportunidades|length }}</span>
                 </div>
-                
-                <div class="text-lg font-bold text-emerald-600 mb-3">
-                    R$ {{ "%.2f"|format(op.valor)|replace('.', ',') if op.valor else "0,00" }}
-                </div>
-                
-                <!-- Status IA -->
-                <div class="text-xs border-t border-gray-100 pt-3">
-                    {% if op.status_conversa_ia %}
-                    <div class="flex items-start text-gray-600">
-                        <svg class="w-4 h-4 text-indigo-500 mr-1 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                        <span class="line-clamp-2" title="{{ op.status_conversa_ia }}">{{ op.status_conversa_ia }}</span>
-                    </div>
-                    {% else %}
-                    <div class="flex items-center text-gray-400">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                        <span>Aguardando análise IA...</span>
-                    </div>
-                    {% endif %}
-                </div>
+                {% if total_col > 0 %}
+                <div class="column-total mono">R$ {{ "{:,.0f}".format(total_col).replace(",", ".") }}</div>
+                {% endif %}
             </div>
-            {% else %}
-            <!-- Dropzone vazia -->
-            <div class="text-center p-6 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 text-sm">
-                Arraste cards ou adicione novas oportunidades.
+
+            <div class="column-body sortable-column" data-estagio="{{ estagio }}">
+                {% for op in oportunidades %}
+                    {% set lead_nome = op.lead_nome if op.lead_nome is defined else (op.lead.nome if op.lead else 'Desconhecido') %}
+                    {% set temp = (op.temperatura_ia or '') | lower %}
+                <div
+                    data-id="{{ op.id }}"
+                    class="deal-card {% if temp == 'quente' %}temp-quente{% elif temp == 'morno' %}temp-morno{% elif temp == 'frio' %}temp-frio{% endif %}">
+                    <div class="deal-header">
+                        <div class="deal-name" title="{{ lead_nome }}">{{ lead_nome }}</div>
+                        {% if op.temperatura_ia %}
+                            <span class="badge badge-{{ temp }}">
+                                <span class="badge-dot"></span>{{ op.temperatura_ia }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="deal-value {% if not op.valor %}zero{% endif %}">
+                        <span class="currency">R$</span>{{ "{:,.2f}".format(op.valor).replace(",", "X").replace(".", ",").replace("X", ".") if op.valor else "0,00" }}
+                    </div>
+
+                    <div class="deal-ia">
+                        {% if op.status_conversa_ia %}
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            <span>{{ op.status_conversa_ia }}</span>
+                        {% else %}
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            <span class="deal-ia-empty">Aguardando análise da IA</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="empty-zone">Arraste cards aqui</div>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
+        {% endfor %}
     </div>
-    {% endfor %}
 </div>
 
-<!-- Container vazio onde o HTMX vai injetar o modal -->
 <div id="modal-container"></div>
 
+{% if from_cache is defined %}
+<div class="cache-indicator {% if from_cache %}hit{% else %}miss{% endif %}">
+    <span class="dot"></span>{% if from_cache %}cache hit{% else %}cache miss · db{% endif %}
+</div>
+{% endif %}
+
 <script>
-    // Inicializa o Drag and Drop assim que a tela carregar
     htmx.onLoad(function(content) {
         var columns = content.querySelectorAll('.sortable-column');
         columns.forEach(function(col) {
             new Sortable(col, {
-                group: 'kanban', // Permite arrastar entre colunas diferentes
-                animation: 150,
-                ghostClass: 'opacity-50', // Efeito visual ao arrastar
+                group: 'kanban',
+                animation: 180,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
                 onEnd: function(evt) {
-                    var item = evt.item; // O Card que foi arrastado
-                    var newEstagio = evt.to.getAttribute('data-estagio'); // A nova coluna
-                    var opId = item.getAttribute('data-id'); // O ID da oportunidade
-                    
-                    // Envia a atualização silenciosamente para o backend via HTMX
+                    var item = evt.item;
+                    var newEstagio = evt.to.getAttribute('data-estagio');
+                    var opId = item.getAttribute('data-id');
+                    if (!opId) return;
                     htmx.ajax('PUT', '/ui/oportunidades/' + opId + '/estagio', {
                         values: { estagio_funil: newEstagio }
                     });
@@ -114,5 +382,14 @@
             });
         });
     });
+
+    // Sumir indicador de cache após 3s
+    setTimeout(function() {
+        var ind = document.querySelector('.cache-indicator');
+        if (ind) {
+            ind.style.transition = 'opacity 0.5s';
+            ind.style.opacity = '0';
+        }
+    }, 3000);
 </script>
 {% endblock %}

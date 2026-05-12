@@ -1,41 +1,273 @@
 {% extends "base.html" %}
+{% set user_logged_in = false %}
+{% block title %}Entrar · LeadPulse{% endblock %}
 
-{% block title %}Login - LeadPulse{% endblock %}
+{% block extra_head %}
+<style>
+    .login-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 100vh;
+        width: 100%;
+    }
+    @media (max-width: 900px) {
+        .login-layout { grid-template-columns: 1fr; }
+        .login-side { display: none; }
+    }
 
-{% block content %}
-<div class="flex items-center justify-center min-h-[80vh]">
-    <div class="bg-white p-8 rounded-xl shadow-md border border-gray-200 w-full max-w-md">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-indigo-600">LeadPulse</h1>
-            <p class="text-gray-500 mt-2">Faça login para acessar seu pipeline.</p>
+    .login-form-wrap {
+        display: grid;
+        place-items: center;
+        padding: 60px 40px;
+        background: var(--bg-page);
+    }
+
+    .login-form {
+        width: 100%;
+        max-width: 380px;
+    }
+
+    .login-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 56px;
+    }
+
+    .login-title {
+        font-size: 42px;
+        line-height: 1;
+        font-weight: 400;
+        margin-bottom: 12px;
+        font-variation-settings: "opsz" 144;
+        letter-spacing: -0.025em;
+    }
+    .login-title .accent { color: var(--accent-500); font-style: italic; }
+
+    .login-subtitle {
+        color: var(--ink-500);
+        margin-bottom: 36px;
+        font-size: 15px;
+        line-height: 1.5;
+    }
+
+    .form-row { margin-bottom: 16px; }
+
+    .submit-btn {
+        width: 100%;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        margin-top: 8px;
+        background: var(--ink-900);
+        color: var(--bg-page);
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-family: inherit;
+        transition: all 0.18s ease;
+    }
+    .submit-btn:hover {
+        background: var(--accent-900);
+        box-shadow: var(--shadow-accent);
+        transform: translateY(-1px);
+    }
+
+    .login-meta {
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid var(--ink-100);
+        font-size: 12px;
+        color: var(--ink-400);
+        text-align: center;
+    }
+    .login-meta code {
+        font-family: var(--font-mono);
+        background: var(--bg-subtle);
+        padding: 2px 6px;
+        border-radius: 3px;
+        color: var(--ink-700);
+    }
+
+    .login-error {
+        display: none;
+        background: #FCE8E6;
+        border: 1px solid #F2C2BD;
+        color: #9B1F12;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        margin-bottom: 16px;
+    }
+    .login-error.show { display: block; }
+
+    /* Lado direito — pôster editorial */
+    .login-side {
+        background: var(--ink-900);
+        color: var(--bg-page);
+        padding: 48px 56px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    /* Padrão gráfico de fundo */
+    .login-side::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image:
+            radial-gradient(circle at 20% 30%, rgba(212, 71, 28, 0.35) 0%, transparent 50%),
+            radial-gradient(circle at 80% 70%, rgba(212, 71, 28, 0.15) 0%, transparent 40%);
+        opacity: 0.7;
+    }
+    .login-side::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+        background-size: 32px 32px;
+    }
+
+    .side-top, .side-mid, .side-bottom {
+        position: relative;
+        z-index: 2;
+    }
+
+    .side-eyebrow {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--accent-300);
+        margin-bottom: 18px;
+    }
+
+    .side-quote {
+        font-family: var(--font-display);
+        font-size: 38px;
+        line-height: 1.15;
+        font-weight: 400;
+        font-variation-settings: "opsz" 144;
+        letter-spacing: -0.025em;
+        max-width: 480px;
+    }
+    .side-quote em {
+        font-style: italic;
+        color: var(--accent-300);
+    }
+
+    .side-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px;
+        margin-top: 40px;
+    }
+    .side-stat-num {
+        font-family: var(--font-display);
+        font-size: 56px;
+        line-height: 1;
+        font-weight: 500;
+        font-variation-settings: "opsz" 144;
+        letter-spacing: -0.04em;
+        color: var(--bg-page);
+    }
+    .side-stat-label {
+        font-size: 12px;
+        color: var(--ink-300);
+        margin-top: 8px;
+        max-width: 180px;
+        line-height: 1.4;
+    }
+
+    .side-footer {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--ink-400);
+        font-family: var(--font-mono);
+        letter-spacing: 0.04em;
+    }
+</style>
+{% endblock %}
+
+{% block standalone %}
+<div class="login-layout">
+    <!-- Formulário -->
+    <div class="login-form-wrap">
+        <div class="login-form">
+            <div class="login-brand">
+                <div class="brand-mark">L</div>
+                <div class="brand-name">Lead<span class="accent">Pulse</span></div>
+            </div>
+
+            <h1 class="login-title">Bem-vindo de <span class="accent">volta</span></h1>
+            <p class="login-subtitle">Entre na sua conta para acessar seu pipeline e as sugestões da IA.</p>
+
+            <div id="error-message" class="login-error"></div>
+
+            <form hx-post="/api/login" hx-swap="none">
+                <div class="form-row">
+                    <label class="label">E-mail</label>
+                    <input class="input" type="email" name="username" required autocomplete="username" placeholder="voce@empresa.com">
+                </div>
+                <div class="form-row">
+                    <label class="label">Senha</label>
+                    <input class="input" type="password" name="password" required autocomplete="current-password" placeholder="••••••••">
+                </div>
+                <button type="submit" class="submit-btn">Entrar no sistema →</button>
+            </form>
+
+            <div class="login-meta">
+                Conta de teste: <code>joao@techcorp.com</code> / <code>123456</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pôster editorial -->
+    <aside class="login-side">
+        <div class="side-top">
+            <div class="side-eyebrow">— CRM com IA · v0.3</div>
         </div>
 
-        <!-- Container de Erro Invisível -->
-        <div id="error-message" class="hidden bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 mb-6 text-sm"></div>
+        <div class="side-mid">
+            <h2 class="side-quote">
+                A IA <em>lê suas conversas</em>, mede a temperatura do lead e <em>escreve o follow-up</em> antes do café esfriar.
+            </h2>
 
-        <form hx-post="/api/login" hx-swap="none" class="space-y-5">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
-                <input type="email" name="username" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="joao@techcorp.com">
+            <div class="side-stat-grid">
+                <div>
+                    <div class="side-stat-num">3.4×</div>
+                    <div class="side-stat-label">mais rápido para fechar negócios</div>
+                </div>
+                <div>
+                    <div class="side-stat-num">0</div>
+                    <div class="side-stat-label">leads esquecidos na planilha</div>
+                </div>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                <input type="password" name="password" required class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="••••••••">
-            </div>
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition-colors">
-                Entrar no Sistema
-            </button>
-        </form>
-    </div>
+        </div>
+
+        <div class="side-footer">
+            <span>São Paulo · BR</span>
+            <span>MMXXVI</span>
+        </div>
+    </aside>
 </div>
 
 <script>
-    // Captura o erro 400 da nossa API e exibe a mensagem na interface
     document.body.addEventListener('htmx:responseError', function(evt) {
-        var errorDiv = document.getElementById('error-message');
-        var response = JSON.parse(evt.detail.xhr.response);
-        errorDiv.innerText = response.detail || "Erro ao fazer login.";
-        errorDiv.classList.remove('hidden');
+        var el = document.getElementById('error-message');
+        try {
+            var r = JSON.parse(evt.detail.xhr.response);
+            el.innerText = r.detail || 'Erro ao fazer login.';
+        } catch(e) {
+            el.innerText = 'Erro ao fazer login.';
+        }
+        el.classList.add('show');
     });
 </script>
 {% endblock %}

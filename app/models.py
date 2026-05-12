@@ -47,17 +47,14 @@ class Usuario(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False, index=True)
     nome: Mapped[str] = mapped_column(String, nullable=False)
-    email: Mapped[str] = mapped_column(String, nullable=False)
+    # Email globalmente único — usuário identifica seu tenant pelo próprio email
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False, server_default="")
     role: Mapped[UserRole] = mapped_column(String, nullable=False)
     
     # Relacionamentos
     tenant: Mapped["Tenant"] = relationship(back_populates="usuarios")
     oportunidades: Mapped[List["Oportunidade"]] = relationship(back_populates="vendedor")
-    
-    __table_args__ = (
-        Index("ix_usuario_tenant_email", "tenant_id", "email", unique=True),
-    )
 
 class Lead(Base):
     __tablename__ = "lead"

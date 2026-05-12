@@ -1,113 +1,275 @@
 {% extends "base.html" %}
+{% set active_page = 'canais' %}
+{% block title %}Canais · LeadPulse{% endblock %}
 
-{% block title %}Canais - LeadPulse{% endblock %}
+{% block extra_head %}
+<style>
+    .canais-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+    @media (max-width: 900px) { .canais-grid { grid-template-columns: 1fr; } }
+
+    .channel-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+    .channel-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+    }
+    .channel-card.whatsapp::before { background: #25D366; }
+    .channel-card.gmail::before    { background: var(--accent-500); }
+
+    .channel-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 6px;
+    }
+    .channel-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+    }
+    .channel-icon.whatsapp { background: #DCFCE7; color: #166534; }
+    .channel-icon.gmail { background: var(--temp-quente-bg); color: var(--accent-700); }
+
+    .channel-title {
+        font-family: var(--font-display);
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+    }
+    .channel-desc {
+        font-size: 13px;
+        color: var(--ink-500);
+        margin-bottom: 18px;
+        line-height: 1.5;
+    }
+    .channel-desc a { color: var(--accent-700); font-weight: 500; }
+
+    .connected-list {
+        margin-bottom: 32px;
+    }
+    .connected-list h3 {
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 12px;
+        color: var(--ink-700);
+        letter-spacing: -0.005em;
+    }
+
+    .connected-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 16px;
+        border: 1px solid var(--ink-100);
+        border-radius: var(--radius-md);
+        background: var(--bg-surface);
+        margin-bottom: 8px;
+        transition: all 0.15s;
+    }
+    .connected-item:hover { border-color: var(--ink-200); }
+
+    .connected-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .connected-info-text { display: flex; flex-direction: column; gap: 2px; }
+    .connected-id {
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ink-900);
+    }
+    .connected-meta {
+        font-size: 11px;
+        color: var(--ink-400);
+    }
+    .status-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #3F8B5E;
+        box-shadow: 0 0 0 3px rgba(63, 139, 94, 0.15);
+    }
+
+    .form-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .webhook-info {
+        background: linear-gradient(180deg, var(--temp-morno-bg), color-mix(in srgb, var(--temp-morno-bg) 50%, var(--bg-surface)));
+        border: 1px solid var(--temp-morno-border);
+        border-radius: var(--radius-md);
+        padding: 18px 20px;
+        margin-top: 32px;
+    }
+    .webhook-info h4 {
+        font-family: var(--font-display);
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--temp-morno-fg);
+        margin-bottom: 6px;
+    }
+    .webhook-info p {
+        font-size: 12.5px;
+        color: var(--temp-morno-fg);
+        opacity: 0.85;
+        margin: 0 0 10px;
+    }
+    .webhook-code {
+        background: var(--bg-surface);
+        border: 1px solid var(--temp-morno-border);
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        word-break: break-all;
+        color: var(--ink-900);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 32px 16px;
+        color: var(--ink-400);
+        font-size: 13px;
+        font-style: italic;
+        background: var(--bg-subtle);
+        border-radius: var(--radius-md);
+        border: 1px dashed var(--ink-200);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="mb-8 flex justify-between items-end border-b border-gray-200 pb-4">
+<header class="page-header">
     <div>
-        <h2 class="text-3xl font-bold text-gray-900">Canais de Comunicação</h2>
-        <p class="text-gray-500 mt-1">Conecte seu WhatsApp (Z-API) e e-mail (Gmail) para que a IA atue nas conversas.</p>
+        <h1 class="page-title">Canais de <span class="accent">comunicação</span></h1>
+        <p class="page-subtitle">Conecte WhatsApp e Gmail para que a IA possa ler conversas e sugerir respostas.</p>
     </div>
-    <a href="/" class="text-indigo-600 hover:underline">← Voltar ao Kanban</a>
-</div>
+</header>
 
-<!-- Lista de canais já cadastrados -->
-<div class="mb-10">
-    <h3 class="text-lg font-semibold text-gray-800 mb-3">Conectados</h3>
-    {% if canais %}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {% for canal in canais %}
-        <div class="bg-white border border-gray-200 rounded-lg p-4 flex justify-between items-center">
-            <div>
-                <div class="flex items-center gap-2">
+<div class="page-body">
+    <!-- Conectados -->
+    <section class="connected-list">
+        <h3>Conectados</h3>
+        {% if canais %}
+            {% for canal in canais %}
+            <div class="connected-item">
+                <div class="connected-info">
                     {% if canal.tipo.value == 'WHATSAPP_ZAPI' %}
-                        <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">WhatsApp</span>
+                        <span class="channel-icon whatsapp" style="width: 32px; height: 32px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4l-2-1c-.3-.2-.7-.1-.9.2l-.7.9c-1.2-.6-2.2-1.6-2.8-2.8l.9-.7c.3-.2.4-.6.2-.9l-1-2c-.2-.4-.6-.6-1-.5l-1.7.6c-.4.1-.7.5-.7.9 0 4.5 3.7 8.2 8.2 8.2.4 0 .8-.3.9-.7l.6-1.7c.2-.5 0-.9-.5-1zM12 2C6.5 2 2 6.5 2 12c0 1.7.4 3.4 1.3 4.9L2 22l5.1-1.3c1.5.8 3.2 1.3 4.9 1.3 5.5 0 10-4.5 10-10S17.5 2 12 2z"/></svg>
+                        </span>
                     {% else %}
-                        <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">Gmail</span>
+                        <span class="channel-icon gmail" style="width: 32px; height: 32px;">
+                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        </span>
                     {% endif %}
-                    <span class="text-sm text-gray-500">
-                        {{ "Ativo" if canal.ativo else "Inativo" }}
-                    </span>
+                    <div class="connected-info-text">
+                        <span class="connected-id">{{ canal.identificador }}</span>
+                        <span class="connected-meta">
+                            <span class="status-dot" style="display:inline-block;margin-right:4px;vertical-align:middle;"></span>
+                            {{ "Ativo" if canal.ativo else "Inativo" }} · conectado {{ canal.criado_em.strftime("%d/%m/%Y") if canal.criado_em else "—" }}
+                        </span>
+                    </div>
                 </div>
-                <div class="font-mono text-gray-900 mt-1">{{ canal.identificador }}</div>
+                <button
+                    hx-delete="/ui/canais/{{ canal.id }}"
+                    hx-confirm="Remover este canal? As mensagens já recebidas serão mantidas."
+                    class="btn btn-danger">Remover</button>
             </div>
-            <button
-                hx-delete="/ui/canais/{{ canal.id }}"
-                hx-confirm="Remover este canal? As mensagens já recebidas serão mantidas."
-                class="text-red-600 hover:text-red-800 text-sm">
-                Remover
-            </button>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">Nenhum canal conectado ainda. Use os formulários abaixo para começar.</div>
+        {% endif %}
+    </section>
+
+    <!-- Formulários -->
+    <div class="canais-grid">
+        <!-- WhatsApp -->
+        <div class="channel-card whatsapp">
+            <div class="channel-head">
+                <span class="channel-icon whatsapp">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4l-2-1c-.3-.2-.7-.1-.9.2l-.7.9c-1.2-.6-2.2-1.6-2.8-2.8l.9-.7c.3-.2.4-.6.2-.9l-1-2c-.2-.4-.6-.6-1-.5l-1.7.6c-.4.1-.7.5-.7.9 0 4.5 3.7 8.2 8.2 8.2.4 0 .8-.3.9-.7l.6-1.7c.2-.5 0-.9-.5-1zM12 2C6.5 2 2 6.5 2 12c0 1.7.4 3.4 1.3 4.9L2 22l5.1-1.3c1.5.8 3.2 1.3 4.9 1.3 5.5 0 10-4.5 10-10S17.5 2 12 2z"/></svg>
+                </span>
+                <h3 class="channel-title">WhatsApp via Z-API</h3>
+            </div>
+            <p class="channel-desc">
+                Crie uma instância em <a href="https://z-api.io" target="_blank">z-api.io</a>, escaneie o QR Code com seu WhatsApp e cole os dados abaixo.
+            </p>
+
+            <form hx-post="/ui/canais/whatsapp" class="form-fields">
+                <div>
+                    <label class="label">Número (com DDI)</label>
+                    <input class="input" name="identificador" required placeholder="+5511999999999">
+                </div>
+                <div>
+                    <label class="label">Instance ID</label>
+                    <input class="input mono" name="instance_id" required>
+                </div>
+                <div>
+                    <label class="label">Token</label>
+                    <input class="input mono" name="token" type="password" required>
+                </div>
+                <div>
+                    <label class="label">Client-Token <span style="color:var(--ink-400);font-weight:400;">(opcional)</span></label>
+                    <input class="input mono" name="client_token" type="password">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 6px;">Conectar WhatsApp</button>
+            </form>
         </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-gray-500 text-sm italic">Nenhum canal conectado ainda.</p>
-    {% endif %}
-</div>
 
-<!-- Formulário WhatsApp Z-API -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-    <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 class="text-lg font-bold text-gray-900 mb-1">📱 WhatsApp via Z-API</h3>
-        <p class="text-sm text-gray-500 mb-4">
-            Crie uma instância em <a href="https://z-api.io" target="_blank" class="text-indigo-600 hover:underline">z-api.io</a>, escaneie o QR Code com o WhatsApp do celular e cole os dados abaixo.
-        </p>
-        <form hx-post="/ui/canais/whatsapp" class="space-y-3">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Número (com DDI)</label>
-                <input name="identificador" required placeholder="+5511999999999"
-                       class="w-full border rounded-lg p-2">
+        <!-- Gmail -->
+        <div class="channel-card gmail">
+            <div class="channel-head">
+                <span class="channel-icon gmail">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </span>
+                <h3 class="channel-title">Gmail · IMAP/SMTP</h3>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Instance ID</label>
-                <input name="instance_id" required class="w-full border rounded-lg p-2">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Token</label>
-                <input name="token" type="password" required class="w-full border rounded-lg p-2">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Client-Token (opcional)</label>
-                <input name="client_token" type="password" class="w-full border rounded-lg p-2">
-            </div>
-            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium w-full">
-                Conectar WhatsApp
-            </button>
-        </form>
+            <p class="channel-desc">
+                Use uma <a href="https://myaccount.google.com/apppasswords" target="_blank">senha de aplicativo</a> do Google (não a senha normal). Requer autenticação 2FA ativada.
+            </p>
+
+            <form hx-post="/ui/canais/gmail" class="form-fields">
+                <div>
+                    <label class="label">E-mail</label>
+                    <input class="input" name="email" type="email" required placeholder="vendas@suaempresa.com">
+                </div>
+                <div>
+                    <label class="label">Senha de aplicativo</label>
+                    <input class="input mono" name="app_password" type="password" required placeholder="xxxx xxxx xxxx xxxx">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 6px;">Conectar Gmail</button>
+            </form>
+        </div>
     </div>
 
-    <!-- Formulário Gmail -->
-    <div class="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 class="text-lg font-bold text-gray-900 mb-1">📧 Gmail (IMAP/SMTP)</h3>
-        <p class="text-sm text-gray-500 mb-4">
-            Use uma <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-indigo-600 hover:underline">senha de aplicativo</a> do Google (não a senha normal!). Requer 2FA ativado na conta.
-        </p>
-        <form hx-post="/ui/canais/gmail" class="space-y-3">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
-                <input name="email" type="email" required placeholder="vendas@empresa.com"
-                       class="w-full border rounded-lg p-2">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Senha de aplicativo</label>
-                <input name="app_password" type="password" required placeholder="xxxx xxxx xxxx xxxx"
-                       class="w-full border rounded-lg p-2">
-            </div>
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium w-full">
-                Conectar Gmail
-            </button>
-        </form>
+    <!-- Webhook info -->
+    <div class="webhook-info">
+        <h4>⚙️ Configuração do Webhook Z-API</h4>
+        <p>Após conectar o WhatsApp, configure este endereço no painel da Z-API (em "On Message Received"):</p>
+        <div class="webhook-code">
+            https://SEU_DOMINIO/webhooks/whatsapp/{{ tenant_id if tenant_id is defined else 'TENANT_ID' }}?secret=SEU_SECRET
+        </div>
     </div>
-</div>
-
-<!-- Caixinha de instruções dos webhooks -->
-<div class="mt-10 p-5 bg-amber-50 border border-amber-200 rounded-lg">
-    <h4 class="font-bold text-amber-900 mb-2">⚙️ Configuração do Webhook Z-API</h4>
-    <p class="text-sm text-amber-800 mb-2">
-        Após conectar o WhatsApp, configure este endereço no painel da Z-API (em "On Message Received"):
-    </p>
-    <code class="block bg-white p-2 rounded border border-amber-300 text-xs break-all">
-        {{ request.url_for('webhook_whatsapp', tenant_id=tenant_id) if tenant_id is defined else 'https://SEU_DOMINIO/webhooks/whatsapp/{tenant_id}?secret=SEU_SECRET' }}
-    </code>
 </div>
 {% endblock %}

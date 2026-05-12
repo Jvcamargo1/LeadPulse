@@ -4,6 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Form, Response
 from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from app.api.webhooks import whatsapp as webhook_whatsapp
 from app.core.config import get_settings
 from app.core.dependencies import get_db, get_current_tenant_id
 from app.core.database import init_db
+from app.core.cache import get_cache, kanban_cache_key, invalidar_kanban
 from app.models import Oportunidade, Lead
 from app.workers.imap_worker import imap_polling_loop
 
@@ -24,14 +26,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # STARTUP
     await init_db()
     
     settings = get_settings()
     imap_task = None
     
     if not settings.DISABLE_BACKGROUND_WORKERS:
-        # Cria a task do worker IMAP, mas não bloqueia o startup
         imap_task = asyncio.create_task(imap_polling_loop())
         logger.info("Worker IMAP agendado.")
     else:
@@ -39,19 +39,20 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    # SHUTDOWN
     if imap_task:
         imap_task.cancel()
         try:
             await imap_task
         except asyncio.CancelledError:
             pass
+    
+    await get_cache().close()
 
 
 app = FastAPI(
     title="LeadPulse",
     description="SaaS CRM com IA para PMEs",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -69,14 +70,11 @@ app.include_router(webhook_whatsapp.router)
 
 templates = Jinja2Templates(directory="app/templates")
 
+
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
-    """
-    Intercepta erros HTTP. Se for Erro 401 (Não Autenticado) e o usuário estiver
-    navegando pelo navegador, redireciona-o para a página de Login.
-    """
     if exc.status_code == 401:
-        if request.url.path.startswith("/api"):
+        if request.url.path.startswith("/api") or request.url.path.startswith("/webhooks"):
             return JSONResponse({"detail": exc.detail}, status_code=401)
         return RedirectResponse(url="/login")
     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
@@ -84,8 +82,8 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
 
 @app.get("/login")
 async def login_view(request: Request):
-    """Renderiza a página visual de Login."""
     return templates.TemplateResponse("login.html", {"request": request})
+
 
 @app.get("/")
 async def kanban_view(
@@ -93,6 +91,11 @@ async def kanban_view(
     db: AsyncSession = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
 ):
+    """Kanban com cache-aside no Redis."""
+    settings = get_settings()
+    cache = get_cache()
+    cache_key = kanban_cache_key(tenant_id)
+    
     estagios_padrao = [
         "Prospecção",
         "Qualificação",
@@ -101,8 +104,21 @@ async def kanban_view(
         "Fechado Ganho",
         "Fechado Perdido",
     ]
-    estagios_dict = {estagio: [] for estagio in estagios_padrao}
     
+    # Tenta cache primeiro
+    cached = await cache.get_json(cache_key)
+    if cached is not None:
+        return templates.TemplateResponse(
+            "kanban.html",
+            {
+                "request": request,
+                "estagios": cached,
+                "tenant_id": str(tenant_id),
+                "from_cache": True,
+            },
+        )
+    
+    # Cache miss — busca no banco
     stmt = (
         select(Oportunidade)
         .where(Oportunidade.tenant_id == tenant_id)
@@ -111,12 +127,29 @@ async def kanban_view(
     result = await db.execute(stmt)
     oportunidades_db = result.scalars().all()
     
+    # Serializa para algo que cabe no JSON do Redis
+    estagios_dict = {estagio: [] for estagio in estagios_padrao}
     for op in oportunidades_db:
-        estagios_dict.setdefault(op.estagio_funil, []).append(op)
+        item = {
+            "id": str(op.id),
+            "valor": op.valor,
+            "estagio_funil": op.estagio_funil,
+            "temperatura_ia": op.temperatura_ia,
+            "status_conversa_ia": op.status_conversa_ia,
+            "lead_nome": op.lead.nome if op.lead else "Desconhecido",
+        }
+        estagios_dict.setdefault(op.estagio_funil, []).append(item)
+    
+    await cache.set_json(cache_key, estagios_dict, ttl=settings.CACHE_TTL_KANBAN_SECONDS)
     
     return templates.TemplateResponse(
         "kanban.html",
-        {"request": request, "estagios": estagios_dict, "tenant_id": str(tenant_id)},
+        {
+            "request": request,
+            "estagios": estagios_dict,
+            "tenant_id": str(tenant_id),
+            "from_cache": False,
+        },
     )
 
 
@@ -147,6 +180,10 @@ async def ui_criar_oportunidade(
     )
     db.add(nova_op)
     await db.commit()
+    
+    # Invalida cache do Kanban deste tenant
+    await invalidar_kanban(tenant_id)
+    
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
@@ -165,4 +202,5 @@ async def ui_atualizar_estagio_oportunidade(
     if op:
         op.estagio_funil = estagio_funil
         await db.commit()
+        await invalidar_kanban(tenant_id)
     return Response(status_code=204)

@@ -32,7 +32,7 @@ async def listar_canais(
     
     return templates.TemplateResponse(
         "canais.html",
-        {"request": request, "canais": canais},
+        {"request": request, "canais": canais, "tenant_id": str(tenant_id)},
     )
 
 

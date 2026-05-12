@@ -23,6 +23,7 @@ from app.services.routing import (
     registrar_mensagem_recebida,
 )
 from app.api.routes.oportunidades import _task_analisar_ia_background
+from app.core.cache import invalidar_kanban
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,8 @@ async def webhook_whatsapp(
     await db.commit()
     
     if mensagem:
-        # Dispara análise IA em background (reusa a task que já existe)
+        # Mensagem nova chegou — kanban precisa refletir (ultima_interacao mudou)
+        await invalidar_kanban(tenant_id)
         background_tasks.add_task(_task_analisar_ia_background, oportunidade.id, tenant_id)
     
     return {"status": "ok", "oportunidade_id": str(oportunidade.id)}

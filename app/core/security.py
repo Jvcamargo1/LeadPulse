@@ -1,13 +1,12 @@
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from jose import jwt
 import bcrypt
 
-# Configurações do JWT
-SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-para-mvp-leadpulse")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 dias de expiração
+from app.core.config import get_settings
+
+settings = get_settings()
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica se a senha em texto plano bate com o hash salvo no banco."""
@@ -15,21 +14,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
     try:
         return bcrypt.checkpw(
-            plain_password.encode('utf-8'), 
-            hashed_password.encode('utf-8')
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
         )
     except ValueError:
         return False
 
+
 def get_password_hash(password: str) -> str:
     """Gera um hash Bcrypt a partir de uma senha."""
     salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+
 
 def create_access_token(subject: str | Any, tenant_id: str) -> str:
     """Gera o Token JWT contendo o ID do usuário (sub) e o ID da empresa (tenant_id)."""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode = {"exp": int(expire.timestamp()), "sub": str(subject), "tenant_id": str(tenant_id)}
-    
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {
+        "exp": int(expire.timestamp()),
+        "sub": str(subject),
+        "tenant_id": str(tenant_id),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
