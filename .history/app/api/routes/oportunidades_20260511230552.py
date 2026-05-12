@@ -1,6 +1,7 @@
 import uuid
 from typing import List
 from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -106,6 +107,7 @@ async def delete_oportunidade(
     await db.commit()
     return None
 
+@router.post("/{oportunidade_id}/analisar-ia", response_model=OportunidadeResponse)
 async def _task_analisar_ia_background(
     oportunidade_id: uuid.UUID,
     tenant_id: uuid.UUID
@@ -170,9 +172,12 @@ async def analisar_oportunidade_com_ia(
     tenant_id: uuid.UUID = Depends(get_current_tenant_id)
 ):
     """
+    Aciona a IA da Groq para analisar o histórico de mensagens da Oportunidade.
+    Atualiza a Temperatura, Status da Conversa e cria uma Tarefa de Follow-Up sugerida.
     Aciona a IA da Groq em BACKGROUND. Retorna 202 (Accepted) imediatamente, 
     deixando o processamento pesado para rodar depois sem travar o usuário.
     """
+    # 1. Busca a oportunidade
     # Valida se a oportunidade existe antes de despachar a tarefa
     stmt_op = select(Oportunidade).where(
         Oportunidade.id == oportunidade_id,
@@ -184,7 +189,56 @@ async def analisar_oportunidade_com_ia(
     if not oportunidade:
         raise HTTPException(status_code=404, detail="Oportunidade não encontrada no tenant atual")
 
+    # 2. Busca o histórico de mensagens
+    stmt_msg = select(Mensagem).where(
+        Mensagem.oportunidade_id == oportunidade_id,
+        Mensagem.tenant_id == tenant_id
+    ).order_by(Mensagem.data_envio.asc())
+    result_msg = await db.execute(stmt_msg)
+    mensagens = result_msg.scalars().all()
     # Adiciona a tarefa na fila do FastAPI
     background_tasks.add_task(_task_analisar_ia_background, oportunidade_id, tenant_id)
     
+    if not mensagens:
+        raise HTTPException(status_code=400, detail="Não há mensagens para serem analisadas nesta oportunidade.")
+
+    # 3. Formata para o padrão esperado pelo Llama 3
+    historico_ia = []
+    for msg in mensagens:
+        # Se for LEAD, é o 'user' que enviou a mensagem (quem estamos analisando).
+        # Qualquer outro remetente (VENDEDOR, SISTEMA) é o 'assistant'.
+        role = "user" if msg.remetente.upper() == "LEAD" else "assistant"
+        historico_ia.append({"role": role, "content": msg.conteudo_texto})
+        
+        # Marca a mensagem como analisada
+        msg.analisada_pela_ia = True
+        db.add(msg)
+
+    # 4. Chama o serviço da IA (Groq)
+    resultado_ia = await analisar_interacao_lead(historico_ia)
+    
+    if not resultado_ia:
+        raise HTTPException(status_code=500, detail="Falha ao analisar a conversa com a Inteligência Artificial.")
+
+    # 5. Atualiza a Oportunidade
+    oportunidade.temperatura_ia = resultado_ia.get("temperatura")
+    oportunidade.status_conversa_ia = resultado_ia.get("status_conversa")
+    db.add(oportunidade)
+    
+    # 6. Cria a Tarefa de Follow Up com a sugestão de rascunho
+    rascunho = resultado_ia.get("rascunho_sugerido")
+    if rascunho:
+        nova_tarefa = Tarefa_FollowUp(
+            tenant_id=tenant_id,
+            oportunidade_id=oportunidade.id,
+            status="PENDENTE",
+            data_limite=datetime.now(timezone.utc), # Mock: Ideal seria calcular para +1 ou +2 dias
+            rascunho_sugerido_ia=rascunho
+        )
+        db.add(nova_tarefa)
+
+    await db.commit()
+    await db.refresh(oportunidade)
+    
+    return oportunidade
     return {"mensagem": "Análise iniciada em background."}

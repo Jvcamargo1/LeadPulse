@@ -8,11 +8,7 @@
         <h2 class="text-3xl font-bold text-gray-900">Pipeline de Vendas</h2>
         <p class="text-gray-500 mt-1">Acompanhe suas oportunidades e sugestões da IA.</p>
     </div>
-    <button 
-        hx-get="/ui/oportunidades/modal-nova" 
-        hx-target="#modal-container"
-        class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center"
-    >
+    <button class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
         Nova Oportunidade
     </button>
@@ -31,10 +27,10 @@
         </div>
         
         <!-- Área dos Cards -->
-        <div class="p-3 flex-1 overflow-y-auto space-y-3 sortable-column min-h-[100px]" data-estagio="{{ estagio }}">
+        <div class="p-3 flex-1 overflow-y-auto space-y-3">
             {% for op in oportunidades %}
             <!-- Card da Oportunidade -->
-            <div data-id="{{ op.id }}" class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group">
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group">
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="font-semibold text-gray-900 truncate pr-2" title="{{ op.lead.nome if op.lead else 'Desconhecido' }}">
                         {{ op.lead.nome if op.lead else 'Desconhecido' }}
@@ -80,31 +76,4 @@
     </div>
     {% endfor %}
 </div>
-
-<!-- Container vazio onde o HTMX vai injetar o modal -->
-<div id="modal-container"></div>
-
-<script>
-    // Inicializa o Drag and Drop assim que a tela carregar
-    htmx.onLoad(function(content) {
-        var columns = content.querySelectorAll('.sortable-column');
-        columns.forEach(function(col) {
-            new Sortable(col, {
-                group: 'kanban', // Permite arrastar entre colunas diferentes
-                animation: 150,
-                ghostClass: 'opacity-50', // Efeito visual ao arrastar
-                onEnd: function(evt) {
-                    var item = evt.item; // O Card que foi arrastado
-                    var newEstagio = evt.to.getAttribute('data-estagio'); // A nova coluna
-                    var opId = item.getAttribute('data-id'); // O ID da oportunidade
-                    
-                    // Envia a atualização silenciosamente para o backend via HTMX
-                    htmx.ajax('PUT', '/ui/oportunidades/' + opId + '/estagio', {
-                        values: { estagio_funil: newEstagio }
-                    });
-                }
-            });
-        });
-    });
-</script>
 {% endblock %}

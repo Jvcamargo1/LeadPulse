@@ -5,7 +5,7 @@ from app.models import Base
 # URL do PostgreSQL (Async). Usa a variável de ambiente se existir, senão usa default local
 SQLALCHEMY_DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/leadpulse"
+    "postgresql+asyncpg://postgres:123@localhost:5432/leadpulse"
 )
 
 engine = create_async_engine(

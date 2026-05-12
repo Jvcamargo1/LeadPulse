@@ -2,6 +2,8 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.models import Base
 
+# Usando SQLite assíncrono para o MVP e desenvolvimento local
+SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./leadpulse.db"
 # URL do PostgreSQL (Async). Usa a variável de ambiente se existir, senão usa default local
 SQLALCHEMY_DATABASE_URL = os.getenv(
     "DATABASE_URL", 
@@ -9,6 +11,8 @@ SQLALCHEMY_DATABASE_URL = os.getenv(
 )
 
 engine = create_async_engine(
+    SQLALCHEMY_DATABASE_URL, 
+    connect_args={"check_same_thread": False}, 
     SQLALCHEMY_DATABASE_URL,
     echo=True  # Imprime as queries SQL no console (útil no desenvolvimento)
 )

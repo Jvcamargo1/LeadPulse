@@ -118,21 +118,3 @@ async def ui_criar_oportunidade(
     
     # Retorna o status 204 (Sucesso sem conteúdo) e o Header do HTMX para atualizar a página
     return Response(status_code=204, headers={"HX-Refresh": "true"})
-
-@app.put("/ui/oportunidades/{oportunidade_id}/estagio")
-async def ui_atualizar_estagio_oportunidade(
-    oportunidade_id: uuid.UUID,
-    estagio_funil: str = Form(...),
-    db: AsyncSession = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(get_current_tenant_id)
-):
-    """Atualiza o estágio da Oportunidade após um Drag and Drop."""
-    stmt = select(Oportunidade).where(Oportunidade.id == oportunidade_id, Oportunidade.tenant_id == tenant_id)
-    result = await db.execute(stmt)
-    op = result.scalars().first()
-    if op:
-        op.estagio_funil = estagio_funil
-        await db.commit()
-    
-    # Retornamos 204 OK sem recarregar a página, pois o JS já reposicionou o Card
-    return Response(status_code=204)
