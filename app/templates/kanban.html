@@ -322,7 +322,13 @@
                     data-id="{{ op.id }}"
                     class="deal-card {% if temp == 'quente' %}temp-quente{% elif temp == 'morno' %}temp-morno{% elif temp == 'frio' %}temp-frio{% endif %}">
                     <div class="deal-header">
-                        <div class="deal-name" title="{{ lead_nome }}">{{ lead_nome }}</div>
+                        <div class="deal-name cursor-pointer hover:text-indigo-600 hover:underline transition-colors" 
+                             title="Abrir histórico de {{ lead_nome }}"
+                             hx-get="/ui/oportunidades/{{ op.id }}" 
+                             hx-target="#modal-container"
+                             hx-trigger="click">
+                             {{ lead_nome }}
+                        </div>
                         {% if op.temperatura_ia %}
                             <span class="badge badge-{{ temp }}">
                                 <span class="badge-dot"></span>{{ op.temperatura_ia }}
@@ -370,6 +376,8 @@
                 animation: 180,
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
+                filter: '.deal-name', // Ignora o arraste se clicar no nome da oportunidade
+                preventOnFilter: false, // Permite que o HTMX receba o evento de clique
                 onEnd: function(evt) {
                     var item = evt.item;
                     var newEstagio = evt.to.getAttribute('data-estagio');

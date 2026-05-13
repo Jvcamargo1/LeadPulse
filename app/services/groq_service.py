@@ -3,16 +3,10 @@ import json
 import logging
 from typing import List, Dict, Any, Optional
 
-try:
-    from groq import AsyncGroq
-except ImportError:
-    # Fallback/Mock caso a biblioteca groq não esteja instalada no ambiente ainda
-    AsyncGroq = None
+from groq import AsyncGroq
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
-
-# Configuração da API Key (Idealmente vindo de app.core.config no futuro)
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 async def analisar_interacao_lead(historico_mensagens: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
     """
@@ -27,15 +21,13 @@ async def analisar_interacao_lead(historico_mensagens: List[Dict[str, str]]) -> 
         um 'status_conversa_ia' (resumo curto) e um 'rascunho_sugerido_ia'.
         Retorna None se houver falha na API.
     """
-    if not GROQ_API_KEY:
-        logger.warning("GROQ_API_KEY não configurada. Usando mock do serviço de IA.")
-        return _mock_analise_ia(historico_mensagens)
+    settings = get_settings()
+    api_key = getattr(settings, "GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")
+    
+    if not api_key:
+        raise ValueError("GROQ_API_KEY não está configurada.")
 
-    if AsyncGroq is None:
-        logger.warning("Biblioteca 'groq' não instalada. Usando mock do serviço de IA. Instale com: pip install groq")
-        return _mock_analise_ia(historico_mensagens)
-
-    client = AsyncGroq(api_key=GROQ_API_KEY)
+    client = AsyncGroq(api_key=api_key)
     
     # Prompt de Sistema (System Prompt) definindo a persona e as regras de saída
     system_prompt = """
@@ -77,17 +69,6 @@ async def analisar_interacao_lead(historico_mensagens: List[Dict[str, str]]) -> 
         
         return resultado_json
         
-    except json.JSONDecodeError as e:
-        logger.error(f"Erro ao decodificar JSON da Groq API: {str(e)}\nResposta original: {resultado_str}")
-        return None
     except Exception as e:
         logger.error(f"Erro na comunicação com a Groq API: {str(e)}")
-        return None
-
-def _mock_analise_ia(historico_mensagens: List[Dict[str, str]]) -> Dict[str, Any]:
-    """Retorno simulado para ambientes de desenvolvimento sem API Key."""
-    return {
-        "temperatura": "Morno",
-        "status_conversa": "Lead aguardando proposta formal.",
-        "rascunho_sugerido": "Olá! Conforme conversamos, segue a nossa proposta detalhada. Podemos agendar uma call rápida amanhã às 14h para repassarmos os detalhes?"
-    }
+        raise e

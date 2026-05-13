@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import delete
 from app.core.database import AsyncSessionLocal
-from app.models import Tenant, Usuario, UserRole, Lead, Oportunidade
+from app.models import Tenant, Usuario, UserRole, Lead, Oportunidade, Mensagem, RemetenteRole, TipoMensagem
 from app.core.security import get_password_hash
 
 MOCK_TENANT_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
@@ -81,6 +81,14 @@ async def seed_db():
         )
         
         db.add_all([op_1, op_2, op_3])
+        await db.flush() # Importante: gerar o ID das Oportunidades
+        
+        # 5. Cria algumas mensagens para a oportunidade 2 (Carlos Oliveira)
+        msg_1 = Mensagem(tenant_id=MOCK_TENANT_ID, oportunidade_id=op_2.id, remetente=RemetenteRole.VENDEDOR, tipo=TipoMensagem.WHATSAPP, conteudo_texto="Olá Carlos, tudo bem? Conseguiu dar uma olhada na proposta?", data_envio=agora - timedelta(hours=6))
+        msg_2 = Mensagem(tenant_id=MOCK_TENANT_ID, oportunidade_id=op_2.id, remetente=RemetenteRole.LEAD, tipo=TipoMensagem.WHATSAPP, conteudo_texto="Oi João! Vi sim. Achei legal, mas o prazo de entrega ficou um pouco apertado pra nós.", data_envio=agora - timedelta(hours=5, minutes=30))
+        msg_3 = Mensagem(tenant_id=MOCK_TENANT_ID, oportunidade_id=op_2.id, remetente=RemetenteRole.VENDEDOR, tipo=TipoMensagem.WHATSAPP, conteudo_texto="Entendo perfeitamente. Se eu conseguir adiantar a entrega em 5 dias, fechamos negócio?", data_envio=agora - timedelta(hours=5))
+        
+        db.add_all([msg_1, msg_2, msg_3])
         
         # Salva tudo no banco
         await db.commit()
