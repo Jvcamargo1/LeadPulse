@@ -3,7 +3,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, Request, Depends, Form, Response
+from fastapi import FastAPI, Request, Depends, Form, Response, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.orm import joinedload
+from pathlib import Path
 
 from app.api.routes import oportunidades, mensagens, canais, tarefas, auth
 from app.api.webhooks import whatsapp as webhook_whatsapp
@@ -69,7 +70,12 @@ app.include_router(canais.router)
 # Webhooks externos
 app.include_router(webhook_whatsapp.router)
 
-templates = Jinja2Templates(directory="app/templates")
+BASE_DIR = Path(__file__).resolve().parent
+
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+# Servir arquivos estáticos (logo, imagens, etc)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -206,14 +212,13 @@ async def ui_atualizar_estagio_oportunidade(
         await invalidar_kanban(tenant_id)
     return Response(status_code=204)
 
-@app.get("/ui/oportunidades/{oportunidade_id}")
-async def ui_painel_oportunidade(
+async def _render_painel_oportunidade(
     oportunidade_id: uuid.UUID,
     request: Request,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
 ):
-    """Busca os dados do Lead e histórico de mensagens e abre o Painel Lateral."""
+    """Helper compartilhado: busca tudo de uma oportunidade e renderiza o painel lateral."""
     stmt = (
         select(Oportunidade)
         .where(Oportunidade.id == oportunidade_id, Oportunidade.tenant_id == tenant_id)
@@ -224,14 +229,29 @@ async def ui_painel_oportunidade(
         )
     )
     result = await db.execute(stmt)
-    op = result.scalars().first()
+    op = result.unique().scalars().first()
     
     if not op:
         raise HTTPException(status_code=404, detail="Oportunidade não encontrada")
         
     mensagens = sorted(op.mensagens, key=lambda m: m.data_envio)
     tarefa_pendente = next((t for t in op.tarefas if t.status == "PENDENTE"), None)
-    return templates.TemplateResponse("painel_oportunidade.html", {"request": request, "op": op, "mensagens": mensagens, "tarefa": tarefa_pendente})
+    return templates.TemplateResponse(
+        "painel_oportunidade.html",
+        {"request": request, "op": op, "mensagens": mensagens, "tarefa": tarefa_pendente},
+    )
+
+
+@app.get("/ui/oportunidades/{oportunidade_id}")
+async def ui_painel_oportunidade(
+    oportunidade_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    """Abre o Painel Lateral com histórico de conversa e insights da IA."""
+    return await _render_painel_oportunidade(oportunidade_id, request, db, tenant_id)
+
 
 @app.post("/ui/oportunidades/{oportunidade_id}/analisar-ia")
 async def ui_analisar_ia(
@@ -240,39 +260,62 @@ async def ui_analisar_ia(
     db: AsyncSession = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
 ):
-    """Processa a IA (Groq) no histórico de mensagens reais e gera rascunho."""
+    """Processa a IA (Groq) no histórico real e gera rascunho de resposta."""
     stmt = (
         select(Oportunidade)
         .where(Oportunidade.id == oportunidade_id, Oportunidade.tenant_id == tenant_id)
         .options(joinedload(Oportunidade.mensagens))
     )
-    op = (await db.execute(stmt)).scalars().first()
-    if op:
-        historico = []
-        for m in sorted(op.mensagens, key=lambda x: x.data_envio):
-            role = "user" if m.remetente == RemetenteRole.LEAD else "assistant"
-            historico.append({"role": role, "content": m.conteudo_texto})
-            
-        from app.services.groq_service import analisar_interacao_lead
-        try:
-            resultado = await analisar_interacao_lead(historico)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Falha na IA (Groq): {str(e)}")
+    op = (await db.execute(stmt)).unique().scalars().first()
+    
+    if not op:
+        raise HTTPException(status_code=404, detail="Oportunidade não encontrada")
+    
+    # Monta histórico para a IA (lead → user, vendedor → assistant)
+    historico = []
+    for m in sorted(op.mensagens, key=lambda x: x.data_envio):
+        role = "user" if m.remetente == RemetenteRole.LEAD else "assistant"
+        historico.append({"role": role, "content": m.conteudo_texto})
+    
+    if not historico:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta oportunidade ainda não tem mensagens para analisar. Aguarde o lead responder."
+        )
+    
+    from app.services.groq_service import analisar_interacao_lead
+    try:
+        resultado = await analisar_interacao_lead(historico)
+    except Exception as e:
+        logger.exception(f"Falha inesperada na análise IA: {e}")
+        raise HTTPException(status_code=502, detail=f"Erro ao consultar a IA: {str(e)}")
+    
+    if resultado:
+        op.temperatura_ia = resultado.get("temperatura")
+        op.status_conversa_ia = resultado.get("status_conversa")
         
-        if resultado:
-            op.temperatura_ia = resultado.get("temperatura")
-            op.status_conversa_ia = resultado.get("status_conversa")
-            
-            # Apaga tarefas antigas e salva a nova sugestão da IA
-            await db.execute(delete(Tarefa_FollowUp).where(Tarefa_FollowUp.oportunidade_id == op.id))
+        # Apaga tarefas pendentes antigas e cria a nova
+        await db.execute(
+            delete(Tarefa_FollowUp).where(
+                Tarefa_FollowUp.oportunidade_id == op.id,
+                Tarefa_FollowUp.tenant_id == tenant_id,
+                Tarefa_FollowUp.status == "PENDENTE",
+            )
+        )
+        
+        rascunho = resultado.get("rascunho_sugerido")
+        if rascunho:
             nova_tarefa = Tarefa_FollowUp(
-                tenant_id=tenant_id, oportunidade_id=op.id, status="PENDENTE",
+                tenant_id=tenant_id,
+                oportunidade_id=op.id,
+                status="PENDENTE",
                 data_limite=datetime.now(timezone.utc) + timedelta(hours=24),
-                rascunho_sugerido_ia=resultado.get("rascunho_sugerido")
+                rascunho_sugerido_ia=rascunho,
             )
             db.add(nova_tarefa)
-            
-            await db.commit()
-            await invalidar_kanban(tenant_id)
         
-    return await ui_painel_oportunidade(oportunidade_id, request, db, tenant_id)
+        await db.commit()
+        await invalidar_kanban(tenant_id)
+    
+    # Renderiza o painel atualizado (HTMX vai trocar dentro do #modal-container)
+    return await _render_painel_oportunidade(oportunidade_id, request, db, tenant_id)

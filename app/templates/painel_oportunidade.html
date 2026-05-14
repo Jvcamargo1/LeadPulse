@@ -1,120 +1,507 @@
 <style>
-    /* Mostra o spinner apenas enquanto o HTMX estiver fazendo a requisição da IA */
-    #ai-spinner { display: none; }
-    #ai-spinner.htmx-request { display: inline-block; }
-    .esconder-ao-carregar.htmx-request { display: none; }
-</style>
+    /* ============================================================
+       Painel lateral (slide-over) — design editorial
+       ============================================================ */
+    .panel-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: rgba(10, 10, 8, 0.35);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        animation: panelFade 0.18s ease;
+    }
+    @keyframes panelFade { from { opacity: 0; } }
 
-<div class="fixed inset-0 z-50 overflow-hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-    <!-- Fundo escuro (Clica para fechar) -->
-    <div class="fixed inset-0 bg-gray-900 bg-opacity-30 transition-opacity backdrop-blur-sm" 
-         onclick="document.getElementById('modal-container').innerHTML=''"></div>
+    .panel-shell {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: 740px;
+        z-index: 101;
+        background: var(--bg-surface);
+        box-shadow: -32px 0 64px -16px rgba(10, 10, 8, 0.2);
+        display: flex;
+        flex-direction: column;
+        animation: panelSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        font-family: var(--font-body);
+    }
+    @keyframes panelSlide { from { transform: translateX(40px); opacity: 0; } }
 
-    <div class="fixed inset-y-0 right-0 max-w-full flex">
-        <!-- Painel Lateral -->
-        <div class="w-screen max-w-2xl transform transition ease-in-out duration-300 translate-x-0 shadow-2xl bg-white flex flex-col">
-            
-            <!-- Header do Painel -->
-            <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-                <div>
-                    <h2 class="text-xl font-bold text-gray-900" id="slide-over-title">
-                        {{ op.lead.nome }}
-                    </h2>
-                    <p class="text-sm text-gray-500 mt-0.5">{{ op.estagio_funil }} · R$ {{ "{:,.2f}".format(op.valor or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</p>
-                </div>
-                <button type="button" class="rounded-full p-2 bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" onclick="document.getElementById('modal-container').innerHTML=''">
-                    <span class="sr-only">Fechar</span>
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-            
-            <!-- Corpo do Painel -->
-            <div class="flex-1 overflow-y-auto p-6 flex gap-6">
-                
-                <!-- Coluna Esquerda: Chat -->
-                <div class="flex-1 flex flex-col gap-3">
-                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Histórico de Conversa</h3>
-                    
-                    <div id="chat-history-container" class="flex-1 bg-slate-50 border border-gray-100 rounded-xl p-4 flex flex-col gap-4 overflow-y-auto">
-                        {% for msg in mensagens %}
-                            {% if msg.remetente == 'LEAD' %}
-                                <div class="bg-white border border-gray-200 p-3 rounded-2xl rounded-tl-none self-start max-w-[85%] shadow-sm">
-                                    <p class="text-[14px] text-gray-800 leading-relaxed">{{ msg.conteudo_texto }}</p>
-                                    <span class="text-[10px] text-gray-400 mt-1.5 block font-medium">{{ msg.data_envio.strftime('%H:%M') }}</span>
-                                </div>
-                            {% else %}
-                                <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-2xl rounded-tr-none self-end max-w-[85%] shadow-sm">
-                                    <p class="text-[14px] text-indigo-900 leading-relaxed">{{ msg.conteudo_texto }}</p>
-                                    <span class="text-[10px] text-indigo-400 mt-1.5 block text-right font-medium">{{ msg.data_envio.strftime('%H:%M') }}</span>
-                                </div>
-                            {% endif %}
-                        {% else %}
-                            <div class="m-auto text-center">
-                                <p class="text-sm text-gray-400 italic">Nenhuma mensagem registrada até o momento.</p>
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <!-- Coluna Direita: Análise IA -->
-                <div class="w-64 flex flex-col gap-6 pl-2">
-                    <div>
-                        <h3 class="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                            Insights da IA
-                        </h3>
-                        
-                        <button hx-post="/ui/oportunidades/{{ op.id }}/analisar-ia" hx-target="#modal-container" hx-indicator="#ai-spinner" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-semibold py-2.5 px-4 rounded-lg shadow-sm transition-all flex justify-center items-center gap-2">
-                            <svg id="ai-spinner" class="animate-spin h-4 w-4 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            <span class="esconder-ao-carregar">Analisar Novamente</span>
-                            <span class="htmx-indicator">Analisando...</span>
-                        </button>
-                    </div>
-
-                    {% if op.temperatura_ia %}
-                    <div class="bg-white border border-gray-100 rounded-lg p-3 shadow-sm">
-                        <span class="text-[11px] uppercase tracking-wider font-semibold text-gray-400 block mb-1">Temperatura</span>
-                        <span class="text-sm font-bold text-gray-800">{{ op.temperatura_ia }}</span>
-                    </div>
-                    {% endif %}
-
-                    {% if op.status_conversa_ia %}
-                    <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3 shadow-sm flex-1">
-                        <span class="text-[11px] uppercase tracking-wider font-semibold text-indigo-400 block mb-1.5">Resumo Executivo</span>
-                        <p class="text-[13px] text-indigo-900 leading-relaxed">
-                            {{ op.status_conversa_ia }}
-                        </p>
-                    </div>
-                    {% endif %}
-
-                    {% if tarefa and tarefa.rascunho_sugerido_ia %}
-                        <div class="bg-white border border-gray-100 rounded-lg p-3 shadow-sm">
-                            <span class="text-[11px] uppercase tracking-wider font-semibold text-gray-500 block mb-1.5">Sugestão de Resposta</span>
-                            <textarea class="w-full text-[13px] text-gray-800 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" rows="5">{{ tarefa.rascunho_sugerido_ia }}</textarea>
-                            <button onclick="alert('Integração com WhatsApp será na próxima fase!')" class="mt-2 w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[13px] font-semibold py-2 px-3 rounded transition-colors flex justify-center items-center gap-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                                Enviar no WhatsApp
-                            </button>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // Força o scroll do histórico de chat para o final, mostrando a última mensagem.
-    var chatContainer = document.getElementById('chat-history-container');
-    if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+    .panel-header {
+        padding: 24px 28px 20px;
+        border-bottom: 1px solid var(--ink-100);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        background: var(--bg-page);
+    }
+    .panel-lead-info { min-width: 0; flex: 1; }
+    .panel-lead-name {
+        font-family: var(--font-display);
+        font-size: 24px;
+        font-weight: 500;
+        font-variation-settings: "opsz" 120;
+        letter-spacing: -0.02em;
+        color: var(--ink-900);
+        margin: 0 0 6px;
+        line-height: 1.1;
+    }
+    .panel-lead-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 12.5px;
+        color: var(--ink-500);
+    }
+    .panel-lead-meta .divider {
+        width: 1px; height: 12px;
+        background: var(--ink-200);
+    }
+    .panel-lead-meta .value-tag {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-900);
+        font-weight: 600;
     }
 
-    // Ouve erros de resposta do HTMX e emite um alerta nativo para o usuário
-    document.body.addEventListener('htmx:responseError', function(evt) {
-        try {
-            var r = JSON.parse(evt.detail.xhr.response);
-            if (r.detail) { alert(r.detail); }
-        } catch(e) {}
-    }, { once: true });
+    .panel-body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 0;
+        overflow: hidden;
+    }
+    @media (max-width: 800px) {
+        .panel-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    }
+
+    /* COLUNA ESQUERDA — chat */
+    .chat-section {
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--ink-100);
+        overflow: hidden;
+        background: var(--bg-page);
+    }
+    .chat-label {
+        padding: 16px 24px 8px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--ink-400);
+    }
+    .chat-stream {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .chat-empty {
+        margin: auto;
+        text-align: center;
+        color: var(--ink-400);
+        font-style: italic;
+        font-size: 13px;
+    }
+    .chat-msg {
+        max-width: 82%;
+        padding: 10px 14px;
+        border-radius: 14px;
+        font-size: 13.5px;
+        line-height: 1.45;
+        position: relative;
+    }
+    .chat-msg-time {
+        font-size: 10.5px;
+        font-family: var(--font-mono);
+        margin-top: 6px;
+        opacity: 0.55;
+        font-variant-numeric: tabular-nums;
+    }
+    .chat-msg.lead {
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        color: var(--ink-900);
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+    .chat-msg.lead .chat-msg-time { color: var(--ink-400); }
+    .chat-msg.vendedor {
+        background: var(--ink-900);
+        color: var(--bg-page);
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+    .chat-msg.vendedor .chat-msg-time { color: var(--ink-300); }
+    .chat-msg.sistema {
+        background: var(--bg-subtle);
+        border: 1px dashed var(--ink-200);
+        color: var(--ink-500);
+        align-self: center;
+        font-style: italic;
+        font-size: 12px;
+    }
+
+    .chat-msg-channel {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        margin-bottom: 4px;
+        opacity: 0.7;
+    }
+
+    /* COLUNA DIREITA — IA */
+    .ia-section {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px 24px 24px;
+        overflow-y: auto;
+        background: var(--bg-surface);
+    }
+    .ia-label {
+        padding: 0;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--accent-700);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .ia-label svg { width: 12px; height: 12px; }
+
+    .analyze-btn {
+        width: 100%;
+        background: var(--ink-900);
+        color: var(--bg-page);
+        border: none;
+        padding: 11px 16px;
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.18s;
+    }
+    .analyze-btn:hover:not(:disabled) {
+        background: var(--accent-900);
+        box-shadow: var(--shadow-accent);
+        transform: translateY(-1px);
+    }
+    .analyze-btn:disabled { opacity: 0.6; cursor: wait; }
+    .analyze-btn .spinner {
+        display: none;
+        width: 14px; height: 14px;
+        animation: spin 0.8s linear infinite;
+    }
+    .htmx-request .analyze-btn .spinner,
+    .analyze-btn.htmx-request .spinner { display: inline-block; }
+    .htmx-request .analyze-btn .label,
+    .analyze-btn.htmx-request .label { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .ia-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        border-radius: var(--radius-md);
+        padding: 14px;
+    }
+    .ia-card-label {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--ink-400);
+        margin-bottom: 8px;
+    }
+    .ia-temp-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .ia-temp-val {
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 500;
+        font-variation-settings: "opsz" 96;
+        letter-spacing: -0.01em;
+    }
+    .ia-status-text {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--ink-700);
+    }
+
+    /* Bloco rascunho — destaque com accent */
+    .ia-draft-card {
+        background: linear-gradient(180deg, var(--accent-100), var(--bg-surface) 70%);
+        border: 1px solid var(--accent-300);
+        border-radius: var(--radius-md);
+        padding: 14px;
+    }
+    .ia-draft-card .ia-card-label { color: var(--accent-700); }
+    .ia-draft-textarea {
+        width: 100%;
+        min-height: 110px;
+        padding: 10px 12px;
+        border: 1px solid var(--ink-200);
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: 13px;
+        line-height: 1.5;
+        background: var(--bg-surface);
+        color: var(--ink-900);
+        resize: vertical;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .ia-draft-textarea:focus {
+        outline: none;
+        border-color: var(--accent-500);
+        box-shadow: 0 0 0 3px rgba(212, 71, 28, 0.1);
+    }
+    .ia-draft-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .send-btn {
+        flex: 1;
+        background: var(--accent-500);
+        color: white;
+        border: none;
+        padding: 10px;
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.15s;
+    }
+    .send-btn:hover:not(:disabled) {
+        background: var(--accent-700);
+        box-shadow: var(--shadow-accent);
+    }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .send-btn svg { width: 13px; height: 13px; }
+
+    .ia-empty {
+        background: var(--bg-subtle);
+        border: 1px dashed var(--ink-200);
+        border-radius: var(--radius-md);
+        padding: 24px 16px;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--ink-400);
+        font-style: italic;
+    }
+    .ia-empty svg { width: 32px; height: 32px; margin-bottom: 8px; opacity: 0.5; color: var(--ink-300); }
+
+    .toast-area {
+        margin-top: 8px;
+        font-size: 12px;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        display: none;
+    }
+    .toast-area.show { display: block; }
+    .toast-area.ok { background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
+    .toast-area.err { background: #FCE8E6; color: #9B1F12; border: 1px solid #F2C2BD; }
+</style>
+
+<div class="panel-backdrop" onclick="document.getElementById('modal-container').innerHTML=''"></div>
+
+<aside class="panel-shell" role="dialog" aria-modal="true">
+    <header class="panel-header">
+        <div class="panel-lead-info">
+            <h2 class="panel-lead-name">{{ op.lead.nome }}</h2>
+            <div class="panel-lead-meta">
+                <span>{{ op.estagio_funil }}</span>
+                <span class="divider"></span>
+                <span class="value-tag">R$ {{ "{:,.2f}".format(op.valor or 0).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                {% if op.temperatura_ia %}
+                <span class="divider"></span>
+                <span class="badge badge-{{ op.temperatura_ia|lower }}">
+                    <span class="badge-dot"></span>{{ op.temperatura_ia }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <button class="icon-btn" onclick="document.getElementById('modal-container').innerHTML=''" title="Fechar (Esc)">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </header>
+
+    <div class="panel-body">
+        <!-- Chat -->
+        <section class="chat-section">
+            <div class="chat-label">Histórico de conversa</div>
+            <div id="chat-stream" class="chat-stream">
+                {% for msg in mensagens %}
+                    {% set role_lower = (msg.remetente if msg.remetente is string else msg.remetente.value) | lower %}
+                    {% if role_lower == 'lead' %}
+                    <div class="chat-msg lead">
+                        {% if msg.tipo %}
+                        <div class="chat-msg-channel">
+                            {% set tipo_val = msg.tipo if msg.tipo is string else msg.tipo.value %}
+                            {% if tipo_val == 'WHATSAPP' %}● WhatsApp{% elif tipo_val == 'EMAIL' %}● Email{% else %}● {{ tipo_val }}{% endif %}
+                        </div>
+                        {% endif %}
+                        <div>{{ msg.conteudo_texto }}</div>
+                        <div class="chat-msg-time">{{ msg.data_envio.strftime('%d/%m · %H:%M') }}</div>
+                    </div>
+                    {% elif role_lower == 'sistema' %}
+                    <div class="chat-msg sistema">{{ msg.conteudo_texto }}</div>
+                    {% else %}
+                    <div class="chat-msg vendedor">
+                        {% if msg.tipo %}
+                        <div class="chat-msg-channel">
+                            {% set tipo_val = msg.tipo if msg.tipo is string else msg.tipo.value %}
+                            {% if tipo_val == 'WHATSAPP' %}● WhatsApp{% elif tipo_val == 'EMAIL' %}● Email{% else %}● {{ tipo_val }}{% endif %}
+                        </div>
+                        {% endif %}
+                        <div>{{ msg.conteudo_texto }}</div>
+                        <div class="chat-msg-time">{{ msg.data_envio.strftime('%d/%m · %H:%M') }}</div>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="chat-empty">
+                        Nenhuma mensagem registrada ainda.<br>
+                        Mensagens aparecem aqui quando o lead enviar via WhatsApp ou Email.
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- IA -->
+        <section class="ia-section">
+            <div class="ia-label">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Insights da IA
+            </div>
+
+            <button id="btn-analisar"
+                    class="analyze-btn"
+                    hx-post="/ui/oportunidades/{{ op.id }}/analisar-ia"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML">
+                <svg class="spinner" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+                    <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+                <span class="label">
+                    {% if op.temperatura_ia %}Reanalisar conversa{% else %}Analisar conversa{% endif %}
+                </span>
+            </button>
+
+            {% if op.temperatura_ia %}
+            <div class="ia-card">
+                <div class="ia-card-label">Temperatura</div>
+                <div class="ia-temp-row">
+                    <span class="badge badge-{{ op.temperatura_ia|lower }}">
+                        <span class="badge-dot"></span>{{ op.temperatura_ia }}
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if op.status_conversa_ia %}
+            <div class="ia-card">
+                <div class="ia-card-label">Resumo executivo</div>
+                <p class="ia-status-text">{{ op.status_conversa_ia }}</p>
+            </div>
+            {% endif %}
+
+            {% if tarefa and tarefa.rascunho_sugerido_ia %}
+            <div class="ia-draft-card">
+                <div class="ia-card-label">Sugestão de resposta</div>
+                <form id="form-enviar-rascunho"
+                      hx-post="/api/tarefas/{{ tarefa.id }}/aprovar-enviar"
+                      hx-swap="none">
+                    <textarea name="texto_editado"
+                              class="ia-draft-textarea"
+                              placeholder="Edite o texto se quiser…">{{ tarefa.rascunho_sugerido_ia }}</textarea>
+                    <div class="ia-draft-actions">
+                        <button type="submit" class="send-btn">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12l5 5L20 7"/></svg>
+                            Aprovar e enviar
+                        </button>
+                    </div>
+                </form>
+                <div id="toast" class="toast-area"></div>
+            </div>
+            {% elif op.temperatura_ia %}
+            <div class="ia-empty">
+                <p>Clique em <strong>Reanalisar conversa</strong> para gerar um novo rascunho.</p>
+            </div>
+            {% else %}
+            <div class="ia-empty">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin: 0 auto; display: block;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 11a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+                <p>Sem análise ainda. Clique em <strong>Analisar conversa</strong> para a IA processar o histórico.</p>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+</aside>
+
+<script>
+    (function() {
+        // Auto-scroll do chat para o final
+        var stream = document.getElementById('chat-stream');
+        if (stream) stream.scrollTop = stream.scrollHeight;
+
+        // ESC fecha o painel
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('modal-container').innerHTML = '';
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+
+        // Feedback do envio do rascunho
+        var form = document.getElementById('form-enviar-rascunho');
+        var toast = document.getElementById('toast');
+        if (form) {
+            form.addEventListener('htmx:afterRequest', function(evt) {
+                if (evt.detail.successful) {
+                    toast.textContent = '✓ Mensagem enviada ao lead. Fechando em 2s…';
+                    toast.className = 'toast-area show ok';
+                    setTimeout(function() {
+                        document.getElementById('modal-container').innerHTML = '';
+                        location.reload(); // recarrega kanban para refletir nova mensagem
+                    }, 2000);
+                } else {
+                    var msg = 'Falha ao enviar.';
+                    try {
+                        var r = JSON.parse(evt.detail.xhr.response);
+                        if (r.detail) msg = r.detail;
+                    } catch(e) {}
+                    toast.textContent = '✗ ' + msg;
+                    toast.className = 'toast-area show err';
+                }
+            });
+        }
+    })();
 </script>

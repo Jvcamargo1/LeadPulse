@@ -151,6 +151,22 @@
             margin-bottom: 20px;
         }
 
+        /* Logo PNG — versão clara/branca usada em fundos escuros sem ajuste,
+           ou invertida via filter para aparecer em fundos claros. */
+        .brand-logo {
+            height: 32px;
+            width: auto;
+            display: block;
+            transition: filter 0.2s, opacity 0.2s;
+        }
+        /* Em sidebar/header claros — inverte para virar preta */
+        .brand-logo.on-light {
+            filter: invert(1) brightness(0.95) contrast(1.1);
+        }
+        /* Em fundos escuros (login side, dark surfaces) — fica como veio */
+        .brand-logo.on-dark { filter: none; }
+
+        /* Fallback texto-marca antigo, mantido para uso eventual */
         .brand-mark {
             width: 28px;
             height: 28px;
@@ -550,8 +566,7 @@
     <div class="app-shell">
         <aside class="sidebar">
             <div class="brand">
-                <div class="brand-mark">L</div>
-                <div class="brand-name">Lead<span class="accent">Pulse</span></div>
+                <img src="/static/img/leadpulse-logo.png" alt="LeadPulse" class="brand-logo on-light" style="height: 36px;">
             </div>
 
             <div class="nav-section">
