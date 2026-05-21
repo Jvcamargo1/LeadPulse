@@ -1,89 +1,104 @@
-# LeadPulse 🚀
+# LeadPulse
 
-LeadPulse é um SaaS de CRM moderno focado em PMEs (Pequenas e Médias Empresas). Ele é integrado com Inteligência Artificial (Groq/Llama 3) para análise de interações com clientes, medição de temperatura do lead e sugestão automática de respostas via WhatsApp ou E-mail.
+CRM moderno para PMEs com IA integrada (Groq/Llama 3) para análise de leads, medição de temperatura e sugestão automática de follow-ups via WhatsApp e E-mail.
 
-## 🏗️ Stack Tecnológico
+## Stack
+
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0 (Async)
-- **Frontend:** HTMX, Jinja2, CSS puro (Padrão de Design Editorial)
-- **Banco de Dados:** PostgreSQL (Armazenamento Principal)
-- **Cache:** Redis (Para alta performance do Kanban)
-- **IA:** Integração nativa com Groq API
+- **Frontend:** HTMX, Jinja2, CSS puro
+- **Banco de Dados:** PostgreSQL
+- **Cache:** Redis
+- **IA:** Groq API (Llama 3.3-70b)
 
 ---
 
-## 🛠️ Pré-requisitos
+## Rodando com Docker (recomendado)
 
-Antes de rodar o projeto, certifique-se de ter os seguintes itens instalados no seu computador:
+> **Pré-requisito único:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado.
+> Não é necessário ter Python, PostgreSQL ou Redis instalados na sua máquina.
 
-1. **[Python 3.10+](https://www.python.org/downloads/)**
-2. **PostgreSQL** (Recomendamos rodar via Docker ou instalar localmente)
-3. **Redis** (Recomendamos rodar via Docker ou usar Memurai no Windows)
+### 1. Clonar o repositório
 
-> **Dica de Infraestrutura:** A maneira mais fácil de rodar o Banco de Dados e o Redis na sua máquina é utilizando o **Docker Desktop**.
-
----
-
-## ⚙️ Passo a Passo de Instalação e Execução
-
-### 1. Clonar o Repositório
-Abra o seu terminal (PowerShell ou Git Bash) e clone o projeto:
 ```bash
 git clone https://github.com/Jvcamargo1/LeadPulse.git
 cd LeadPulse
 ```
 
-### 2. Criar e Ativar o Ambiente Virtual
-Para não misturar as dependências do projeto com o seu sistema, crie um ambiente virtual (Venv):
+### 2. Criar o arquivo `.env`
 
-**No Windows (PowerShell):**
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
-*(No Linux/Mac, use `source venv/bin/activate`)*
+Copie o arquivo de exemplo:
 
-> **Nota:** Se o PowerShell bloquear a execução do script no Windows, rode este comando como Administrador primeiro: `Set-ExecutionPolicy Unrestricted -Force`.
-
-### 3. Instalar as Dependências
-Com o ambiente virtual ativado (aparecerá um `(venv)` verde no terminal), instale as bibliotecas Python:
 ```bash
-pip install -r requirements.txt
+cp .env.example .env
 ```
 
-### 4. Configurar as Variáveis de Ambiente
-Na raiz do projeto, crie um arquivo chamado **`.env`** e insira a sua chave da Groq (e as credenciais de banco, se forem diferentes do padrão):
+Para rodar em modo de demonstração, o `.env` já vem configurado com valores padrão. O único campo opcional é a chave da IA:
 
 ```env
-GROQ_API_KEY=gsk_sua_chave_aqui
-
-# Opcional (As URLs abaixo já são o padrão do sistema)
-# DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/leadpulse
-# REDIS_URL=redis://localhost:6379/0
+GROQ_API_KEY=gsk_sua_chave_aqui   # opcional — sem ela, a IA usa respostas simuladas
 ```
 
-### 5. Preparar o Banco de Dados
-Certifique-se de que o **PostgreSQL e o Redis estão ligados**. Crie um banco de dados vazio chamado `leadpulse` no seu gerenciador do Postgres (pgAdmin, DBeaver, etc).
+> Obtenha uma chave gratuita em [console.groq.com/keys](https://console.groq.com/keys)
 
-Depois, rode o nosso script de seed. Ele criará todas as tabelas e populará o sistema com leads e conversas fictícias:
+### 3. Subir os containers
+
 ```bash
-python seed.py
+docker compose up --build -d
 ```
 
-### 6. Rodar a Aplicação
-Inicie o servidor Uvicorn forçando o carregamento dos módulos do ambiente virtual:
+Isso vai baixar as imagens (PostgreSQL, Redis) e construir a aplicação. Na primeira vez pode demorar alguns minutos.
+
+### 4. Popular o banco com dados de demonstração
+
 ```bash
-python -m uvicorn app.main:app --reload
+docker compose exec web python seed.py
 ```
 
-O servidor iniciará na URL: **http://127.0.0.1:8000**
+Esse comando cria as tabelas, os usuários de acesso e alguns leads/oportunidades de exemplo.
+
+### 5. Acessar
+
+Abra no navegador: **http://localhost:8000**
 
 ---
 
-## 🔑 Acesso ao Sistema (Modo Teste)
+## Usuários de acesso
 
-Acesse a URL acima. Para fazer login no sistema populado pelo `seed.py`, utilize:
+| Perfil   | E-mail                | Senha  |
+|----------|-----------------------|--------|
+| Vendedor | `joao@techcorp.com`   | 123456 |
+| Admin    | `admin@leadpulse.com` | 123456 |
 
-- **E-mail:** `joao@techcorp.com`
-- **Senha:** `123456`
+O perfil **Admin** dá acesso ao painel de gerenciamento de usuários em `/admin`.
 
-Pronto! Você pode visualizar as Oportunidades, arrastar os cards no Kanban e clicar nos Leads para testar as **Sugestões da IA**.
+---
+
+## Comandos úteis
+
+```bash
+# Ver logs da aplicação em tempo real
+docker compose logs -f web
+
+# Parar todos os containers
+docker compose down
+
+# Parar e apagar os dados do banco (reset completo)
+docker compose down -v
+
+# Recriar os dados de demonstração após reset
+docker compose exec web python seed.py
+```
+
+---
+
+## Funcionalidades
+
+- **Kanban** de oportunidades com drag-and-drop e filtro por temperatura de lead
+- **Dashboard** com KPIs, funil de vendas e atividade recente
+- **Leads** — cadastro, edição e exportação CSV
+- **Tarefas** — lista de follow-ups pendentes e concluídos gerados pela IA
+- **Análise de IA** — temperatura do lead (Quente/Morno/Frio) e rascunho de resposta
+- **Simulador de mensagens** — para demonstração sem credenciais reais de WhatsApp/Email
+- **Painel Admin** — cadastro e remoção de usuários
+- **Dark mode** e suporte a PWA (instalável no celular/desktop)
+- **Busca global** de leads e oportunidades
