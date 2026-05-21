@@ -31,8 +31,7 @@ async def listar_canais(
     canais = result.scalars().all()
     
     return templates.TemplateResponse(
-        "canais.html",
-        {"request": request, "canais": canais, "tenant_id": str(tenant_id)},
+        request, "canais.html", {"canais": canais, "tenant_id": str(tenant_id)},
     )
 
 
