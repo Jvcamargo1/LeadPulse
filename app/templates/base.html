@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}LeadPulse{% endblock %}</title>
 
+    <!-- PWA -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0A0A08">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="LeadPulse">
+    <link rel="apple-touch-icon" href="/static/img/leadpulse-logo.png">
+
     <!-- Tipografia editorial -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -557,10 +565,104 @@
             position: relative;
             z-index: 1;
         }
+
+        /* ============================================================
+           Busca global na sidebar
+           ============================================================ */
+
+        .search-wrap {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 7px 10px 7px 30px;
+            border: 1px solid var(--ink-200);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 12.5px;
+            background: var(--bg-page);
+            color: var(--ink-900);
+            transition: all 0.15s;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--ink-500);
+            background: var(--bg-surface);
+        }
+        .search-icon {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--ink-400);
+            pointer-events: none;
+        }
+
+        .search-results {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: var(--bg-surface);
+            border: 1px solid var(--ink-200);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            z-index: 200;
+            overflow: hidden;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .search-group-label {
+            padding: 6px 10px 4px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--ink-400);
+            background: var(--bg-page);
+            border-bottom: 1px solid var(--ink-100);
+        }
+
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            font-size: 12.5px;
+            color: var(--ink-700);
+            text-decoration: none;
+            border-bottom: 1px solid var(--ink-100);
+            transition: background 0.1s;
+        }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-item:hover { background: var(--bg-subtle); }
+        .search-result-item svg { flex-shrink: 0; color: var(--ink-400); }
+        .search-result-meta {
+            margin-left: auto;
+            font-size: 10.5px;
+            color: var(--ink-400);
+            font-family: var(--font-mono);
+        }
+
+        .search-empty {
+            padding: 12px 10px;
+            font-size: 12px;
+            color: var(--ink-400);
+            text-align: center;
+            font-style: italic;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+        }
+    </script>
     {% block layout %}
     {% if user_logged_in is not defined or user_logged_in %}
     <div class="app-shell">
@@ -569,15 +671,52 @@
                 <img src="/static/img/leadpulse-logo.png" alt="LeadPulse" class="brand-logo on-light" style="height: 36px;">
             </div>
 
+            <!-- Busca global -->
+            <div class="search-wrap">
+                <svg class="search-icon" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input
+                    type="search"
+                    class="search-input"
+                    placeholder="Buscar lead…"
+                    hx-get="/api/buscar"
+                    hx-trigger="input changed delay:300ms, search"
+                    hx-target="#search-results-drop"
+                    name="q"
+                    autocomplete="off"
+                    onfocus="document.getElementById('search-results-drop').style.display='block'"
+                    onblur="setTimeout(()=>{document.getElementById('search-results-drop').style.display='none'},180)"
+                >
+                <div id="search-results-drop" style="display:none; position:relative; z-index:200;"></div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-label">Visão geral</div>
+                <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Dashboard
+                </a>
+            </div>
+
             <div class="nav-section">
                 <div class="nav-label">Pipeline</div>
                 <a href="/" class="nav-link {% if active_page == 'kanban' %}active{% endif %}">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
                     Kanban
                 </a>
-                <a href="#" class="nav-link" style="opacity: 0.4; pointer-events: none;">
+                <a href="/leads" class="nav-link {% if active_page == 'leads' %}active{% endif %}">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Leads
+                </a>
+                <a href="#" class="nav-link" id="tarefas-nav-link"
+                   style="opacity: 0.85;">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                    Tarefas <span class="badge badge-neutral" style="margin-left:auto;font-size:10px;">em breve</span>
+                    Tarefas
+                    <span id="tarefas-badge"
+                          hx-get="/api/tarefas/pendentes/count"
+                          hx-trigger="load"
+                          hx-swap="outerHTML"></span>
                 </a>
             </div>
 
@@ -590,12 +729,13 @@
             </div>
 
             <div class="sidebar-footer">
-                <div class="user-card">
-                    <div class="user-avatar">JV</div>
-                    <div style="flex: 1; min-width: 0;">
-                        <div class="user-name">Vendedor</div>
-                        <div class="user-role">{{ tenant_id[:8] if tenant_id is defined else 'TechCorp' }}</div>
-                    </div>
+                <div class="user-card"
+                     id="user-card-content"
+                     hx-get="/api/me/info"
+                     hx-trigger="load"
+                     hx-swap="innerHTML"
+                     style="display:flex; align-items:center; gap:10px; flex:1;">
+                    <div class="user-avatar">…</div>
                 </div>
                 <button hx-post="/api/logout" class="logout-btn">Sair</button>
             </div>

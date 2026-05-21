@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+{% set active_page = 'dashboard' %}
+{% block title %}Dashboard · LeadPulse{% endblock %}
+
+{% block extra_head %}
+<style>
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 28px;
+    }
+
+    .kpi-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        border-radius: var(--radius-lg);
+        padding: 22px 20px 18px;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-card::after {
+        content: '';
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent-300), transparent);
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .kpi-card:hover::after { opacity: 1; }
+
+    .kpi-icon {
+        width: 32px; height: 32px;
+        border-radius: var(--radius-sm);
+        display: grid;
+        place-items: center;
+        margin-bottom: 12px;
+    }
+    .kpi-icon svg { width: 16px; height: 16px; }
+
+    .kpi-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--ink-400);
+        margin-bottom: 8px;
+    }
+
+    .kpi-value {
+        font-family: var(--font-display);
+        font-size: 38px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        color: var(--ink-900);
+        line-height: 1;
+        font-variation-settings: "opsz" 120;
+    }
+    .kpi-value .pfx {
+        font-family: var(--font-body);
+        font-size: 14px;
+        color: var(--ink-400);
+        font-weight: 400;
+        margin-right: 2px;
+        vertical-align: middle;
+    }
+    .kpi-value .sfx {
+        font-family: var(--font-body);
+        font-size: 18px;
+        color: var(--ink-500);
+        font-weight: 400;
+        margin-left: 2px;
+    }
+
+    .kpi-sub {
+        font-size: 12px;
+        color: var(--ink-400);
+        margin-top: 8px;
+    }
+
+    /* Grid principal */
+    .dash-grid {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 20px;
+    }
+
+    .dash-col { display: flex; flex-direction: column; gap: 20px; }
+
+    .section-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    .section-head {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--ink-100);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg-page);
+    }
+
+    .section-title {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ink-900);
+        letter-spacing: -0.01em;
+    }
+
+    .section-meta {
+        font-size: 11px;
+        color: var(--ink-400);
+        font-family: var(--font-mono);
+    }
+
+    .section-body { padding: 18px 20px; }
+    .section-body-tight { padding: 4px 20px 12px; }
+
+    /* Funil */
+    .funnel-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .funnel-row:last-child { margin-bottom: 0; }
+
+    .funnel-label {
+        width: 110px;
+        font-size: 11.5px;
+        color: var(--ink-700);
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    .funnel-bar-bg {
+        flex: 1;
+        height: 22px;
+        background: var(--bg-subtle);
+        border-radius: var(--radius-xs);
+        overflow: hidden;
+    }
+
+    .funnel-bar {
+        height: 100%;
+        border-radius: var(--radius-xs);
+        display: flex;
+        align-items: center;
+        padding: 0 7px;
+        font-size: 10.5px;
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.92);
+        font-weight: 600;
+        min-width: 28px;
+    }
+
+    .funnel-val {
+        width: 80px;
+        text-align: right;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--ink-400);
+        flex-shrink: 0;
+    }
+
+    /* Temperatura grid */
+    .temp-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .temp-cell {
+        border-radius: var(--radius-md);
+        padding: 16px 14px;
+        text-align: center;
+    }
+
+    .temp-num {
+        font-family: var(--font-display);
+        font-size: 32px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        font-variation-settings: "opsz" 96;
+        line-height: 1;
+    }
+
+    .temp-name {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-top: 6px;
+    }
+
+    /* Tarefas */
+    .task-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--ink-100);
+    }
+    .task-row:last-child { border-bottom: none; }
+
+    .task-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: var(--accent-500);
+        flex-shrink: 0;
+        margin-top: 4px;
+    }
+
+    .task-lead { font-size: 13px; font-weight: 600; color: var(--ink-900); }
+    .task-preview {
+        font-size: 11.5px;
+        color: var(--ink-500);
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 270px;
+    }
+    .task-due {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--ink-400);
+        margin-top: 3px;
+    }
+
+    /* Atividade */
+    .activity-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--ink-100);
+    }
+    .activity-row:last-child { border-bottom: none; }
+
+    .activity-dot {
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        margin-top: 5px;
+    }
+    .activity-dot.lead     { background: var(--ink-300); }
+    .activity-dot.vendedor { background: var(--accent-500); }
+    .activity-dot.sistema  { background: var(--ink-200); }
+
+    .activity-txt {
+        font-size: 12.5px;
+        color: var(--ink-700);
+        line-height: 1.4;
+        flex: 1;
+        min-width: 0;
+    }
+    .activity-txt strong { color: var(--ink-900); }
+    .activity-time {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--ink-400);
+        margin-top: 3px;
+    }
+
+    .empty-state {
+        padding: 24px 16px;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--ink-400);
+        font-style: italic;
+    }
+
+    @media (max-width: 1100px) {
+        .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        .dash-grid { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1 class="page-title">Dashboard <span class="accent">analítico</span></h1>
+        <p class="page-subtitle">Visão geral do pipeline, performance da IA e atividade recente.</p>
+    </div>
+    <a href="/" class="btn btn-secondary">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+        Ver Kanban
+    </a>
+</header>
+
+<div class="page-body">
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background: var(--bg-subtle);">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:var(--ink-500)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <div class="kpi-label">Total de Leads</div>
+            <div class="kpi-value">{{ total_leads }}</div>
+            <div class="kpi-sub">na base de dados</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background: #EEF2FF;">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#4F46E5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+            </div>
+            <div class="kpi-label">Oportunidades Ativas</div>
+            <div class="kpi-value">{{ ops_ativas }}</div>
+            <div class="kpi-sub">{{ total_ops }} no total</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background: var(--accent-100);">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:var(--accent-700)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div class="kpi-label">Valor em Pipeline</div>
+            <div class="kpi-value"><span class="pfx">R$</span>{{ "{:,.0f}".format(valor_pipeline).replace(",", ".") }}</div>
+            <div class="kpi-sub">excluindo fechamentos</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background: #DCFCE7;">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#166534"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div class="kpi-label">Taxa de Conversão</div>
+            <div class="kpi-value">{{ taxa_conversao }}<span class="sfx">%</span></div>
+            <div class="kpi-sub">Fechado Ganho / Total</div>
+        </div>
+    </div>
+
+    <!-- Grid principal -->
+    <div class="dash-grid">
+
+        <!-- Coluna esquerda -->
+        <div class="dash-col">
+
+            <!-- Funil -->
+            <div class="section-card">
+                <div class="section-head">
+                    <span class="section-title">Funil de Vendas</span>
+                    <span class="section-meta">{{ total_ops }} oportunidades</span>
+                </div>
+                <div class="section-body">
+                    {% set colors = {
+                        'Prospecção':    '#B5B5AC',
+                        'Qualificação':  '#6B8AAF',
+                        'Proposta':      '#C2A85C',
+                        'Negociação':    '#D4471C',
+                        'Fechado Ganho': '#3F8B5E',
+                        'Fechado Perdido':'#2A2A26'
+                    } %}
+                    {% for estagio, dados in por_estagio.items() %}
+                    {% set pct = [((dados.count / max_count * 100) | int), 8] | max if max_count > 0 else 8 %}
+                    <div class="funnel-row">
+                        <div class="funnel-label">{{ estagio }}</div>
+                        <div class="funnel-bar-bg">
+                            <div class="funnel-bar" style="width:{{ pct }}%; background:{{ colors.get(estagio, '#B5B5AC') }};">
+                                {% if dados.count > 0 %}{{ dados.count }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="funnel-val">
+                            {% if dados.valor > 0 %}R$&nbsp;{{ "{:,.0f}".format(dados.valor).replace(",", ".") }}{% else %}—{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Temperatura IA -->
+            <div class="section-card">
+                <div class="section-head">
+                    <span class="section-title">Temperatura IA dos Leads</span>
+                    <span class="section-meta">{{ total_mensagens }} mensagens</span>
+                </div>
+                <div class="section-body">
+                    <div class="temp-grid">
+                        <div class="temp-cell" style="background:var(--temp-quente-bg); border:1px solid var(--temp-quente-border);">
+                            <div class="temp-num" style="color:var(--temp-quente-fg);">{{ por_temperatura.Quente }}</div>
+                            <div class="temp-name" style="color:var(--temp-quente-fg);">🔥 Quente</div>
+                        </div>
+                        <div class="temp-cell" style="background:var(--temp-morno-bg); border:1px solid var(--temp-morno-border);">
+                            <div class="temp-num" style="color:var(--temp-morno-fg);">{{ por_temperatura.Morno }}</div>
+                            <div class="temp-name" style="color:var(--temp-morno-fg);">☀️ Morno</div>
+                        </div>
+                        <div class="temp-cell" style="background:var(--temp-frio-bg); border:1px solid var(--temp-frio-border);">
+                            <div class="temp-num" style="color:var(--temp-frio-fg);">{{ por_temperatura.Frio }}</div>
+                            <div class="temp-name" style="color:var(--temp-frio-fg);">❄️ Frio</div>
+                        </div>
+                        <div class="temp-cell" style="background:var(--bg-subtle); border:1px solid var(--ink-200);">
+                            <div class="temp-num" style="color:var(--ink-400);">{{ por_temperatura['Sem análise'] }}</div>
+                            <div class="temp-name" style="color:var(--ink-400);">Sem análise</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Coluna direita -->
+        <div class="dash-col">
+
+            <!-- Tarefas pendentes -->
+            <div class="section-card">
+                <div class="section-head">
+                    <span class="section-title">Tarefas Pendentes</span>
+                    {% if tarefas_pendentes %}
+                    <span class="badge badge-quente">{{ tarefas_pendentes|length }}</span>
+                    {% endif %}
+                </div>
+                <div class="section-body-tight">
+                    {% for tarefa in tarefas_pendentes %}
+                    {% set lead_nome = tarefa.oportunidade.lead.nome if tarefa.oportunidade and tarefa.oportunidade.lead else 'Lead' %}
+                    <div class="task-row">
+                        <div class="task-dot"></div>
+                        <div style="min-width:0; flex:1;">
+                            <div class="task-lead">{{ lead_nome }}</div>
+                            <div class="task-preview">{{ tarefa.rascunho_sugerido_ia[:72] if tarefa.rascunho_sugerido_ia else 'Sem rascunho' }}…</div>
+                            <div class="task-due">Vence {{ tarefa.data_limite.strftime('%d/%m às %H:%M') }}</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">Nenhuma tarefa pendente.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Atividade recente -->
+            <div class="section-card">
+                <div class="section-head">
+                    <span class="section-title">Atividade Recente</span>
+                    <span class="section-meta">{{ total_mensagens }} msgs no total</span>
+                </div>
+                <div class="section-body-tight">
+                    {% for msg in atividade_recente %}
+                    {% set rem = (msg.remetente if msg.remetente is string else msg.remetente.value) | lower %}
+                    {% set lead_nome = msg.oportunidade.lead.nome if msg.oportunidade and msg.oportunidade.lead else '—' %}
+                    <div class="activity-row">
+                        <div class="activity-dot {{ rem }}"></div>
+                        <div style="min-width:0; flex:1;">
+                            <div class="activity-txt">
+                                <strong>{{ lead_nome }}</strong>: {{ msg.conteudo_texto[:58] }}{% if msg.conteudo_texto|length > 58 %}…{% endif %}
+                            </div>
+                            <div class="activity-time">{{ msg.data_envio.strftime('%d/%m · %H:%M') }}</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">Nenhuma atividade ainda.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<div id="modal-container"></div>
+{% endblock %}
