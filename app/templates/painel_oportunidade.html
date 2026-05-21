@@ -391,6 +391,32 @@
                     </div>
                 {% endfor %}
             </div>
+
+            <!-- Simular mensagem recebida (demo) -->
+            <div style="padding: 12px 24px 16px; border-top: 1px solid var(--ink-100); background: var(--bg-page);">
+                <details>
+                    <summary style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-400); cursor: pointer; user-select: none; list-style: none; display: flex; align-items: center; gap: 6px;">
+                        <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                        Simular mensagem recebida <span style="background:var(--accent-100);color:var(--accent-700);padding:1px 6px;border-radius:999px;font-size:9px;font-weight:700;letter-spacing:0.05em;">DEMO</span>
+                    </summary>
+                    <form id="form-simular"
+                          hx-post="/ui/oportunidades/{{ op.id }}/simular-mensagem"
+                          hx-target="#modal-container"
+                          hx-swap="innerHTML"
+                          style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                        <select name="canal" style="padding:6px 10px; border:1px solid var(--ink-200); border-radius:var(--radius-sm); font-family:inherit; font-size:12px; background:var(--bg-surface); color:var(--ink-700);">
+                            <option value="WHATSAPP">📱 WhatsApp</option>
+                            <option value="EMAIL">📧 Email</option>
+                        </select>
+                        <textarea name="conteudo" rows="2" required
+                            placeholder="Digite o que o lead responderia…"
+                            style="padding:8px 10px; border:1px solid var(--ink-200); border-radius:var(--radius-sm); font-family:inherit; font-size:12.5px; resize:none; background:var(--bg-surface); color:var(--ink-900);"></textarea>
+                        <button type="submit" style="padding:7px 12px; background:var(--ink-900); color:var(--bg-page); border:none; border-radius:var(--radius-sm); font-size:12px; font-weight:600; font-family:inherit; cursor:pointer;">
+                            Simular recebimento
+                        </button>
+                    </form>
+                </details>
+            </div>
         </section>
 
         <!-- IA -->

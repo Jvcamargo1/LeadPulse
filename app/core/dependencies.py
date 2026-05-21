@@ -1,7 +1,8 @@
 import uuid
 from typing import AsyncGenerator
-from fastapi import Request, HTTPException, status
+from fastapi import Request, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from jose import jwt, JWTError
 
 from app.core.database import AsyncSessionLocal
@@ -26,10 +27,10 @@ async def get_current_tenant_id(request: Request) -> uuid.UUID:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
-    
+
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Não autenticado")
-    
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         tenant_id = payload.get("tenant_id")
@@ -47,10 +48,10 @@ async def get_current_user_id(request: Request) -> uuid.UUID:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
-    
+
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Não autenticado")
-    
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id = payload.get("sub")
@@ -59,3 +60,24 @@ async def get_current_user_id(request: Request) -> uuid.UUID:
         return uuid.UUID(user_id)
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido ou expirado")
+
+
+async def get_current_user(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    """Retorna o objeto Usuario completo a partir do JWT."""
+    from app.models import Usuario
+    result = await db.execute(select(Usuario).where(Usuario.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário não encontrado")
+    return user
+
+
+async def require_admin(user=Depends(get_current_user)):
+    """Garante que o usuário logado tem role ADMIN."""
+    role_val = user.role if isinstance(user.role, str) else user.role.value
+    if role_val != "ADMIN":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso restrito a administradores")
+    return user

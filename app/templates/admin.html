@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% set active_page = 'admin' %}
+{% block title %}Administração · LeadPulse{% endblock %}
+
+{% block extra_head %}
+<style>
+    .admin-wrap {
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .users-table th {
+        padding: 11px 16px;
+        text-align: left;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.13em;
+        color: var(--ink-400);
+        border-bottom: 1px solid var(--ink-100);
+        background: var(--bg-page);
+    }
+
+    .users-table td {
+        padding: 13px 16px;
+        font-size: 13.5px;
+        color: var(--ink-700);
+        border-bottom: 1px solid var(--ink-100);
+        vertical-align: middle;
+    }
+
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tbody tr:hover td { background: var(--bg-subtle); }
+
+    .user-name-cell { font-weight: 600; color: var(--ink-900); }
+    .user-email-cell { font-family: var(--font-mono); font-size: 12.5px; }
+
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+    }
+    .role-ADMIN   { background: var(--accent-100); color: var(--accent-700); border: 1px solid var(--accent-300); }
+    .role-MANAGER { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
+    .role-SALES   { background: var(--bg-subtle); color: var(--ink-500); border: 1px solid var(--ink-200); }
+
+    .admin-banner {
+        background: linear-gradient(135deg, var(--ink-900) 0%, var(--ink-700) 100%);
+        color: var(--bg-page);
+        padding: 20px 28px;
+        border-radius: var(--radius-lg);
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+    }
+    .admin-banner h2 {
+        font-family: var(--font-display);
+        font-size: 20px;
+        font-weight: 500;
+        font-variation-settings: "opsz" 96;
+        color: var(--bg-page);
+        margin-bottom: 4px;
+    }
+    .admin-banner p { font-size: 13px; color: var(--ink-300); margin: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1 class="page-title">Administração <span class="accent">do sistema</span></h1>
+        <p class="page-subtitle">Gerencie os usuários e acessos da equipe.</p>
+    </div>
+    <button
+        hx-get="/ui/admin/modal-novo-usuario"
+        hx-target="#modal-container"
+        class="btn btn-primary">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+        Cadastrar usuário
+    </button>
+</header>
+
+<div class="page-body">
+
+    <div class="admin-banner">
+        <div>
+            <h2>Área Restrita — Admin</h2>
+            <p>Somente administradores têm acesso a esta página. Alterações aqui afetam toda a equipe.</p>
+        </div>
+        <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity:0.3;flex-shrink:0;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+    </div>
+
+    <div class="admin-wrap">
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Permissão</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td><span class="user-name-cell">{{ u.nome }}</span></td>
+                    <td><span class="user-email-cell">{{ u.email }}</span></td>
+                    <td>
+                        {% set role_val = u.role if u.role is string else u.role.value %}
+                        {% set role_label = {'ADMIN': 'Admin', 'MANAGER': 'Gerente', 'SALES': 'Vendedor'}.get(role_val, role_val) %}
+                        <span class="role-badge role-{{ role_val }}">{{ role_label }}</span>
+                    </td>
+                    <td style="text-align:right;">
+                        {% set role_val = u.role if u.role is string else u.role.value %}
+                        {% if role_val != 'ADMIN' %}
+                        <button
+                            hx-delete="/admin/usuarios/{{ u.id }}"
+                            hx-confirm="Remover o usuário '{{ u.nome }}'?"
+                            hx-swap="none"
+                            class="btn btn-danger"
+                            style="font-size:12px; padding:4px 10px;">
+                            Remover
+                        </button>
+                        {% else %}
+                        <span style="font-size:11px; color:var(--ink-400);">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<div id="modal-container"></div>
+{% endblock %}

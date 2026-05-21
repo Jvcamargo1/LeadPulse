@@ -16,10 +16,10 @@ from pathlib import Path
 from app.api.routes import oportunidades, mensagens, canais, tarefas, auth
 from app.api.webhooks import whatsapp as webhook_whatsapp
 from app.core.config import get_settings
-from app.core.dependencies import get_db, get_current_tenant_id, get_current_user_id
+from app.core.dependencies import get_db, get_current_tenant_id, get_current_user_id, require_admin
 from app.core.database import init_db
 from app.core.cache import get_cache, kanban_cache_key, invalidar_kanban
-from app.models import Oportunidade, Lead, Mensagem, Tarefa_FollowUp, RemetenteRole, Usuario
+from app.models import Oportunidade, Lead, Mensagem, Tarefa_FollowUp, RemetenteRole, Usuario, TipoMensagem
 from app.workers.imap_worker import imap_polling_loop
 
 logging.basicConfig(level=logging.INFO)
@@ -90,6 +90,198 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
 @app.get("/login")
 async def login_view(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
+
+
+# ─── Rota de informação do link admin (carregada via HTMX na sidebar) ─────────
+
+@app.get("/api/me/admin-link")
+async def me_admin_link(
+    db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    result = await db.execute(select(Usuario).where(Usuario.id == user_id))
+    user = result.scalars().first()
+    role_val = (user.role if isinstance(user.role, str) else user.role.value) if user else ""
+    if role_val != "ADMIN":
+        return HTMLResponse("")
+    return HTMLResponse(
+        '<a href="/admin" target="_blank" class="nav-link" style="color:var(--accent-500);">'
+        '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor">'
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" '
+        'd="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 '
+        '2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 '
+        '2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 '
+        '0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-'
+        '1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.'
+        '996.608 2.296.07 2.572-1.065z"/>'
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>'
+        '</svg>Administração</a>'
+    )
+
+
+# ─── Tarefas ──────────────────────────────────────────────────────────────────
+
+@app.get("/tarefas")
+async def tarefas_view(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    """Página de tarefas de follow-up."""
+    stmt = (
+        select(Tarefa_FollowUp)
+        .where(Tarefa_FollowUp.tenant_id == tenant_id)
+        .options(joinedload(Tarefa_FollowUp.oportunidade).joinedload(Oportunidade.lead))
+        .order_by(Tarefa_FollowUp.data_limite)
+    )
+    result = await db.execute(stmt)
+    tarefas = result.scalars().all()
+    now = datetime.now(timezone.utc)
+    return templates.TemplateResponse(
+        "tarefas.html",
+        {"request": request, "tenant_id": str(tenant_id), "tarefas": tarefas, "now": now},
+    )
+
+
+# ─── Admin ────────────────────────────────────────────────────────────────────
+
+@app.get("/admin")
+async def admin_view(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(
+        select(Usuario).where(Usuario.tenant_id == tenant_id).order_by(Usuario.nome)
+    )
+    usuarios = result.scalars().all()
+    return templates.TemplateResponse(
+        "admin.html",
+        {"request": request, "tenant_id": str(tenant_id), "usuarios": usuarios},
+    )
+
+
+@app.get("/ui/admin/modal-novo-usuario")
+async def ui_modal_novo_usuario(request: Request, _admin=Depends(require_admin)):
+    return templates.TemplateResponse("modal_novo_usuario.html", {"request": request})
+
+
+@app.post("/admin/usuarios")
+async def admin_criar_usuario(
+    nome: str = Form(...),
+    email: str = Form(...),
+    senha: str = Form(...),
+    role: str = Form("SALES"),
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    from app.core.security import get_password_hash
+    email_norm = email.strip().lower()
+    existing = (await db.execute(select(Usuario).where(Usuario.email == email_norm))).scalars().first()
+    if existing:
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado no sistema")
+    novo = Usuario(
+        tenant_id=tenant_id,
+        nome=nome.strip(),
+        email=email_norm,
+        hashed_password=get_password_hash(senha),
+        role=role,
+    )
+    db.add(novo)
+    await db.commit()
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+@app.delete("/admin/usuarios/{usuario_id}")
+async def admin_deletar_usuario(
+    usuario_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(
+        select(Usuario).where(Usuario.id == usuario_id, Usuario.tenant_id == tenant_id)
+    )
+    usuario = result.scalars().first()
+    if usuario:
+        await db.delete(usuario)
+        await db.commit()
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+# ─── Editar Lead ──────────────────────────────────────────────────────────────
+
+@app.get("/ui/leads/{lead_id}/modal-editar")
+async def ui_modal_editar_lead(
+    lead_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id))
+    lead = result.scalars().first()
+    if not lead:
+        raise HTTPException(404, "Lead não encontrado")
+    return templates.TemplateResponse("modal_editar_lead.html", {"request": request, "lead": lead})
+
+
+@app.put("/ui/leads/{lead_id}")
+async def ui_atualizar_lead(
+    lead_id: uuid.UUID,
+    nome: str = Form(...),
+    telefone: str = Form(""),
+    email: str = Form(""),
+    origem: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id))
+    lead = result.scalars().first()
+    if not lead:
+        raise HTTPException(404, "Lead não encontrado")
+    tel = telefone.strip()
+    lead.nome = nome.strip()
+    lead.telefone = tel or None
+    lead.whatsapp_id = tel.replace("+", "").replace(" ", "").replace("-", "") or None
+    lead.email_principal = email.strip() or None
+    lead.origem = origem.strip() or None
+    await db.commit()
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
+# ─── Simular mensagem recebida (demo) ─────────────────────────────────────────
+
+@app.post("/ui/oportunidades/{oportunidade_id}/simular-mensagem")
+async def ui_simular_mensagem(
+    oportunidade_id: uuid.UUID,
+    request: Request,
+    conteudo: str = Form(...),
+    canal: str = Form("WHATSAPP"),
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    """Cria uma mensagem simulada do lead (sem canal real) para fins de demonstração."""
+    stmt = select(Oportunidade).where(
+        Oportunidade.id == oportunidade_id, Oportunidade.tenant_id == tenant_id
+    )
+    op = (await db.execute(stmt)).scalars().first()
+    if not op:
+        raise HTTPException(404, "Oportunidade não encontrada")
+    tipo = TipoMensagem.WHATSAPP if canal == "WHATSAPP" else TipoMensagem.EMAIL
+    nova_msg = Mensagem(
+        tenant_id=tenant_id,
+        oportunidade_id=oportunidade_id,
+        remetente=RemetenteRole.LEAD,
+        tipo=tipo,
+        conteudo_texto=conteudo.strip(),
+    )
+    db.add(nova_msg)
+    op.ultima_interacao = datetime.now(timezone.utc)
+    await db.commit()
+    await invalidar_kanban(tenant_id)
+    return await _render_painel_oportunidade(oportunidade_id, request, db, tenant_id)
 
 
 @app.get("/")
