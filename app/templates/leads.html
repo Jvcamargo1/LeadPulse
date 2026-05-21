@@ -83,6 +83,19 @@
         border: 1px solid var(--ink-200);
     }
 
+    .badge-cliente {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        background: #E6F4EA;
+        color: #1E6B3C;
+        border: 1px solid #A8D5B5;
+    }
+
     .empty-state {
         padding: 64px 20px;
         text-align: center;
@@ -106,6 +119,32 @@
         background: var(--bg-page);
         font-size: 12px;
         color: var(--ink-500);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .filter-tabs {
+        display: flex;
+        gap: 4px;
+        margin-left: auto;
+    }
+    .filter-tab {
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid var(--ink-200);
+        background: transparent;
+        color: var(--ink-500);
+        font-family: inherit;
+        transition: all 0.15s;
+    }
+    .filter-tab.active, .filter-tab:hover {
+        background: var(--ink-900);
+        color: var(--bg-page);
+        border-color: var(--ink-900);
     }
 </style>
 {% endblock %}
@@ -135,7 +174,12 @@
     <div class="leads-wrap">
         {% if leads %}
         <div class="leads-count-bar">
-            {{ leads | length }} lead{% if leads | length != 1 %}s{% endif %} encontrado{% if leads | length != 1 %}s{% endif %}
+            <span id="count-label">{{ leads | length }} lead{% if leads | length != 1 %}s{% endif %} encontrado{% if leads | length != 1 %}s{% endif %}</span>
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filtrarLeads('todos', this)">Todos</button>
+                <button class="filter-tab" onclick="filtrarLeads('leads', this)">Leads</button>
+                <button class="filter-tab" onclick="filtrarLeads('clientes', this)">Clientes</button>
+            </div>
         </div>
         <table class="leads-table">
             <thead>
@@ -150,8 +194,16 @@
             </thead>
             <tbody>
                 {% for lead in leads %}
-                <tr>
-                    <td><span class="lead-name">{{ lead.nome }}</span></td>
+                <tr data-tipo="{% if lead.is_cliente %}cliente{% else %}lead{% endif %}">
+                    <td>
+                        <span class="lead-name">{{ lead.nome }}</span>
+                        {% if lead.is_cliente %}
+                            <span class="badge-cliente" style="margin-left:6px;">✓ Cliente</span>
+                        {% endif %}
+                        {% if lead.cidade %}
+                            <div style="font-size:11px; color:var(--ink-400); margin-top:2px;">{{ lead.cidade }}</div>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if lead.telefone %}
                             <span class="lead-phone">{{ lead.telefone }}</span>
@@ -178,6 +230,27 @@
                         <span class="ops-badge {% if n_ops > 0 %}has-ops{% else %}no-ops{% endif %}">{{ n_ops }}</span>
                     </td>
                     <td class="table-actions">
+                        {% if not lead.is_cliente %}
+                        <button
+                            hx-get="/ui/leads/{{ lead.id }}/modal-converter"
+                            hx-target="#modal-container"
+                            class="btn btn-secondary"
+                            title="Converter em cliente"
+                            style="font-size: 12px; padding: 4px 10px;">
+                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Converter
+                        </button>
+                        {% else %}
+                        <button
+                            hx-get="/ui/leads/{{ lead.id }}/modal-converter"
+                            hx-target="#modal-container"
+                            class="btn btn-secondary"
+                            title="Editar ficha do cliente"
+                            style="font-size: 12px; padding: 4px 10px;">
+                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            Ficha
+                        </button>
+                        {% endif %}
                         <button
                             hx-get="/ui/leads/{{ lead.id }}/modal-editar"
                             hx-target="#modal-container"
@@ -218,4 +291,26 @@
 </div>
 
 <div id="modal-container"></div>
+
+<script>
+function filtrarLeads(tipo, btn) {
+    document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    var rows = document.querySelectorAll('.leads-table tbody tr');
+    var visible = 0;
+    rows.forEach(function(row) {
+        var show = tipo === 'todos' || row.dataset.tipo === tipo.slice(0, -1);
+        // "clientes" → tipo slice(0,-1) = "cliente", "leads" → "lead"
+        if (tipo === 'todos') show = true;
+        else if (tipo === 'clientes') show = row.dataset.tipo === 'cliente';
+        else show = row.dataset.tipo === 'lead';
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    var label = document.getElementById('count-label');
+    if (label) label.textContent = visible + (visible === 1 ? ' registro encontrado' : ' registros encontrados');
+}
+</script>
 {% endblock %}
