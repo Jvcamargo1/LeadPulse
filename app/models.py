@@ -65,10 +65,17 @@ class Lead(Base):
     telefone: Mapped[Optional[str]] = mapped_column(String)
     origem: Mapped[Optional[str]] = mapped_column(String)
     
-    # NOVO: Identificadores externos para roteamento de mensagens recebidas
+    # Identificadores externos para roteamento de mensagens recebidas
     whatsapp_id: Mapped[Optional[str]] = mapped_column(String, index=True)  # E.164: 5511999999999
     email_principal: Mapped[Optional[str]] = mapped_column(String, index=True)
-    
+
+    # Conversão em cliente
+    is_cliente: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    nome_completo: Mapped[Optional[str]] = mapped_column(String)
+    cpf_cnpj: Mapped[Optional[str]] = mapped_column(String)
+    cidade: Mapped[Optional[str]] = mapped_column(String)
+    data_conversao: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
     # Relacionamentos
     tenant: Mapped["Tenant"] = relationship(back_populates="leads")
     oportunidades: Mapped[List["Oportunidade"]] = relationship(back_populates="lead")

@@ -1,0 +1,89 @@
+<div class="modal-backdrop" onclick="if(event.target===this) document.getElementById('modal-container').innerHTML=''">
+    <div class="modal-card" onclick="event.stopPropagation()" style="max-width: 520px;">
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title">Converter em Cliente</h2>
+                <p style="font-size:12px; color:var(--ink-400); margin-top:4px;">{{ lead.nome }}</p>
+            </div>
+            <button class="icon-btn" onclick="document.getElementById('modal-container').innerHTML=''">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <form id="form-converter-lead" hx-post="/ui/leads/{{ lead.id }}/converter" hx-swap="none">
+            <div class="modal-body">
+
+                <div style="background:var(--accent-100); border:1px solid var(--accent-300); border-radius:var(--radius-sm); padding:10px 12px; font-size:12.5px; color:var(--accent-700);">
+                    Preencha os dados cadastrais do cliente. Os campos do lead (telefone, e-mail) serão mantidos.
+                </div>
+
+                <div>
+                    <label class="label">Nome completo *</label>
+                    <input name="nome_completo" type="text" class="input"
+                           value="{{ lead.nome_completo or lead.nome }}" required autofocus
+                           placeholder="Nome completo conforme documento">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label class="label">CPF / CNPJ</label>
+                        <input name="cpf_cnpj" type="text" class="input"
+                               value="{{ lead.cpf_cnpj or '' }}"
+                               placeholder="000.000.000-00">
+                    </div>
+                    <div>
+                        <label class="label">Cidade</label>
+                        <input name="cidade" type="text" class="input"
+                               value="{{ lead.cidade or '' }}"
+                               placeholder="Ex: São Paulo – SP">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label class="label">Telefone</label>
+                        <input name="telefone" type="text" class="input"
+                               value="{{ lead.telefone or '' }}"
+                               placeholder="(11) 99999-9999">
+                    </div>
+                    <div>
+                        <label class="label">Email</label>
+                        <input name="email" type="email" class="input"
+                               value="{{ lead.email_principal or '' }}"
+                               placeholder="cliente@empresa.com">
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                        onclick="document.getElementById('modal-container').innerHTML=''">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Confirmar conversão
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function() {
+        document.getElementById('form-converter-lead').addEventListener('htmx:afterRequest', function(e) {
+            if (e.detail.successful) {
+                document.getElementById('modal-container').innerHTML = '';
+                location.reload();
+            }
+        });
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('modal-container').innerHTML = '';
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+    })();
+</script>

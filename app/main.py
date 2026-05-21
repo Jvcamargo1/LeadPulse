@@ -213,6 +213,52 @@ async def admin_deletar_usuario(
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
+# ─── Converter Lead em Cliente ────────────────────────────────────────────────
+
+@app.get("/ui/leads/{lead_id}/modal-converter")
+async def ui_modal_converter_lead(
+    lead_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id))
+    lead = result.scalars().first()
+    if not lead:
+        raise HTTPException(404, "Lead não encontrado")
+    return templates.TemplateResponse(request, "modal_converter_lead.html", {"lead": lead})
+
+
+@app.post("/ui/leads/{lead_id}/converter")
+async def ui_converter_lead(
+    lead_id: uuid.UUID,
+    nome_completo: str = Form(...),
+    cpf_cnpj: str = Form(""),
+    cidade: str = Form(""),
+    telefone: str = Form(""),
+    email: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id))
+    lead = result.scalars().first()
+    if not lead:
+        raise HTTPException(404, "Lead não encontrado")
+    lead.is_cliente = True
+    lead.nome_completo = nome_completo.strip()
+    lead.cpf_cnpj = cpf_cnpj.strip() or None
+    lead.cidade = cidade.strip() or None
+    if telefone.strip():
+        tel = telefone.strip()
+        lead.telefone = tel
+        lead.whatsapp_id = tel.replace("+", "").replace(" ", "").replace("-", "") or None
+    if email.strip():
+        lead.email_principal = email.strip()
+    lead.data_conversao = datetime.now(timezone.utc)
+    await db.commit()
+    return Response(status_code=204, headers={"HX-Refresh": "true"})
+
+
 # ─── Editar Lead ──────────────────────────────────────────────────────────────
 
 @app.get("/ui/leads/{lead_id}/modal-editar")
