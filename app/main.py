@@ -91,7 +91,7 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
 
 @app.get("/login")
 async def login_view(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 
 # ─── Rota de informação do link admin (carregada via HTMX na sidebar) ─────────
@@ -140,8 +140,8 @@ async def tarefas_view(
     tarefas = result.scalars().all()
     now = datetime.now(timezone.utc)
     return templates.TemplateResponse(
-        "tarefas.html",
-        {"request": request, "tenant_id": str(tenant_id), "tarefas": tarefas, "now": now},
+        request, "tarefas.html",
+        {"tenant_id": str(tenant_id), "tarefas": tarefas, "now": now},
     )
 
 
@@ -159,14 +159,14 @@ async def admin_view(
     )
     usuarios = result.scalars().all()
     return templates.TemplateResponse(
-        "admin.html",
-        {"request": request, "tenant_id": str(tenant_id), "usuarios": usuarios},
+        request, "admin.html",
+        {"tenant_id": str(tenant_id), "usuarios": usuarios},
     )
 
 
 @app.get("/ui/admin/modal-novo-usuario")
 async def ui_modal_novo_usuario(request: Request, _admin=Depends(require_admin)):
-    return templates.TemplateResponse("modal_novo_usuario.html", {"request": request})
+    return templates.TemplateResponse(request, "modal_novo_usuario.html")
 
 
 @app.post("/admin/usuarios")
@@ -226,7 +226,7 @@ async def ui_modal_editar_lead(
     lead = result.scalars().first()
     if not lead:
         raise HTTPException(404, "Lead não encontrado")
-    return templates.TemplateResponse("modal_editar_lead.html", {"request": request, "lead": lead})
+    return templates.TemplateResponse(request, "modal_editar_lead.html", {"lead": lead})
 
 
 @app.put("/ui/leads/{lead_id}")
@@ -391,13 +391,8 @@ async def kanban_view(
     cached = await cache.get_json(cache_key)
     if cached is not None:
         return templates.TemplateResponse(
-            "kanban.html",
-            {
-                "request": request,
-                "estagios": cached,
-                "tenant_id": str(tenant_id),
-                "from_cache": True,
-            },
+            request, "kanban.html",
+            {"estagios": cached, "tenant_id": str(tenant_id), "from_cache": True},
         )
     
     # Cache miss — busca no banco
@@ -425,13 +420,8 @@ async def kanban_view(
     await cache.set_json(cache_key, estagios_dict, ttl=settings.CACHE_TTL_KANBAN_SECONDS)
     
     return templates.TemplateResponse(
-        "kanban.html",
-        {
-            "request": request,
-            "estagios": estagios_dict,
-            "tenant_id": str(tenant_id),
-            "from_cache": False,
-        },
+        request, "kanban.html",
+        {"estagios": estagios_dict, "tenant_id": str(tenant_id), "from_cache": False},
     )
 
 
@@ -445,7 +435,7 @@ async def ui_modal_nova_oportunidade(
     result = await db.execute(stmt)
     leads = result.scalars().all()
     return templates.TemplateResponse(
-        "modal_nova_oportunidade.html", {"request": request, "leads": leads}
+        request, "modal_nova_oportunidade.html", {"leads": leads}
     )
 
 
@@ -512,8 +502,8 @@ async def _render_painel_oportunidade(
     mensagens = sorted(op.mensagens, key=lambda m: m.data_envio)
     tarefa_pendente = next((t for t in op.tarefas if t.status == "PENDENTE"), None)
     return templates.TemplateResponse(
-        "painel_oportunidade.html",
-        {"request": request, "op": op, "mensagens": mensagens, "tarefa": tarefa_pendente},
+        request, "painel_oportunidade.html",
+        {"op": op, "mensagens": mensagens, "tarefa": tarefa_pendente},
     )
 
 
@@ -635,9 +625,8 @@ async def dashboard_view(
     max_count = max((v["count"] for v in por_estagio.values()), default=1) or 1
 
     return templates.TemplateResponse(
-        "dashboard.html",
+        request, "dashboard.html",
         {
-            "request": request,
             "tenant_id": str(tenant_id),
             "total_leads": total_leads,
             "total_ops": total_ops,
@@ -670,14 +659,13 @@ async def leads_view(
     result = await db.execute(stmt)
     leads = result.unique().scalars().all()
     return templates.TemplateResponse(
-        "leads.html",
-        {"request": request, "leads": leads, "tenant_id": str(tenant_id)},
+        request, "leads.html", {"leads": leads, "tenant_id": str(tenant_id)},
     )
 
 
 @app.get("/ui/leads/modal-novo")
 async def ui_modal_novo_lead(request: Request):
-    return templates.TemplateResponse("modal_novo_lead.html", {"request": request})
+    return templates.TemplateResponse(request, "modal_novo_lead.html")
 
 
 @app.post("/ui/leads")
