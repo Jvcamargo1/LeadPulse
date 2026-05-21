@@ -195,6 +195,32 @@
         font-style: italic;
     }
 
+    /* Filtro de temperatura */
+    .temp-filter-bar {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+    .temp-filter-btn {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid var(--ink-200);
+        background: var(--bg-surface);
+        color: var(--ink-500);
+        font-family: inherit;
+        transition: all 0.15s;
+    }
+    .temp-filter-btn:hover { border-color: var(--ink-400); color: var(--ink-900); }
+    .temp-filter-btn.active-all { background: var(--ink-900); color: var(--bg-page); border-color: var(--ink-900); }
+    .temp-filter-btn.active-quente { background: var(--temp-quente-bg); color: var(--temp-quente-fg); border-color: var(--temp-quente-border); }
+    .temp-filter-btn.active-morno  { background: var(--temp-morno-bg);  color: var(--temp-morno-fg);  border-color: var(--temp-morno-border); }
+    .temp-filter-btn.active-frio   { background: var(--temp-frio-bg);   color: var(--temp-frio-fg);   border-color: var(--temp-frio-border); }
+
+    .deal-card.hidden-by-filter { display: none !important; }
+
     /* Indicador de cache (sutil canto inferior) */
     .cache-indicator {
         position: fixed;
@@ -267,6 +293,13 @@
         <p class="page-subtitle">Acompanhe suas oportunidades em tempo real. Arraste cards para mudar de estágio.</p>
     </div>
     <div class="flex gap-4 items-center">
+        <div class="temp-filter-bar">
+            <button class="temp-filter-btn active-all" onclick="setTempFilter(this,'all')">Todos</button>
+            <button class="temp-filter-btn" onclick="setTempFilter(this,'quente')">🔥 Quente</button>
+            <button class="temp-filter-btn" onclick="setTempFilter(this,'morno')">☀️ Morno</button>
+            <button class="temp-filter-btn" onclick="setTempFilter(this,'frio')">❄️ Frio</button>
+        </div>
+        <div style="width:1px; height:24px; background: var(--ink-200);"></div>
         <div class="pipeline-stats">
             <div class="stat">
                 <span class="stat-label">Negócios ativos</span>
@@ -361,6 +394,7 @@
 
 <div id="modal-container"></div>
 
+
 {% if from_cache is defined %}
 <div class="cache-indicator {% if from_cache %}hit{% else %}miss{% endif %}">
     <span class="dot"></span>{% if from_cache %}cache hit{% else %}cache miss · db{% endif %}
@@ -390,6 +424,22 @@
             });
         });
     });
+
+    // Filtro de temperatura
+    function setTempFilter(btn, temp) {
+        document.querySelectorAll('.temp-filter-btn').forEach(function(b) {
+            b.classList.remove('active-all', 'active-quente', 'active-morno', 'active-frio');
+        });
+        btn.classList.add('active-' + temp);
+        document.querySelectorAll('.deal-card').forEach(function(card) {
+            if (temp === 'all') {
+                card.classList.remove('hidden-by-filter');
+            } else {
+                var hasTemp = card.classList.contains('temp-' + temp);
+                card.classList.toggle('hidden-by-filter', !hasTemp);
+            }
+        });
+    }
 
     // Sumir indicador de cache após 3s
     setTimeout(function() {
