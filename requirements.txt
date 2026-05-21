@@ -1,24 +1,24 @@
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-sqlalchemy==2.0.30
-asyncpg==0.29.0
-groq==0.8.0
-pydantic==2.7.1
-pydantic-settings==2.2.1
-jinja2==3.1.3
-alembic==1.13.1
-python-multipart==0.0.9
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+sqlalchemy>=2.0.30
+asyncpg>=0.29.0
+groq>=0.8.0
+pydantic>=2.7.1
+pydantic-settings>=2.2.1
+jinja2>=3.1.3
+alembic>=1.13.1
+python-multipart>=0.0.9
 
 # Integração de canais
-httpx==0.27.0
-cryptography==42.0.7
-aioimaplib==1.1.0
-aiosmtplib==3.0.1
-email-validator==2.1.1
+httpx>=0.27.0
+cryptography>=42.0.7
+aioimaplib>=1.1.0
+aiosmtplib>=3.0.1
+email-validator>=2.1.1
 
 # Autenticação JWT
-python-jose[cryptography]==3.3.0
-bcrypt==4.1.3
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.1.3
 
 # Cache
-redis[hiredis]==5.0.4
+redis>=5.0.4
