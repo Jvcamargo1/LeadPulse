@@ -4,7 +4,9 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, Request, Depends, Form, Response, HTTPException
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+import csv
+import io
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.templating import Jinja2Templates
@@ -282,6 +284,87 @@ async def ui_simular_mensagem(
     await db.commit()
     await invalidar_kanban(tenant_id)
     return await _render_painel_oportunidade(oportunidade_id, request, db, tenant_id)
+
+
+# ─── Notas rápidas na oportunidade ───────────────────────────────────────────
+
+@app.put("/ui/oportunidades/{oportunidade_id}/notas")
+async def ui_salvar_notas(
+    oportunidade_id: uuid.UUID,
+    notas: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(
+        select(Oportunidade).where(
+            Oportunidade.id == oportunidade_id, Oportunidade.tenant_id == tenant_id
+        )
+    )
+    op = result.scalars().first()
+    if op:
+        op.notas = notas.strip() or None
+        await db.commit()
+    return HTMLResponse(
+        '<span style="font-size:11px;color:#3F8B5E;font-weight:600;">✓ Salvo</span>'
+    )
+
+
+# ─── Export CSV ───────────────────────────────────────────────────────────────
+
+@app.get("/leads/export.csv")
+async def export_leads_csv(
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(
+        select(Lead).where(Lead.tenant_id == tenant_id).order_by(Lead.nome)
+    )
+    leads = result.scalars().all()
+
+    output = io.StringIO()
+    w = csv.writer(output)
+    w.writerow(["Nome", "Telefone", "WhatsApp ID", "Email", "Origem"])
+    for lead in leads:
+        w.writerow([lead.nome, lead.telefone or "", lead.whatsapp_id or "",
+                    lead.email_principal or "", lead.origem or ""])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue().encode("utf-8-sig")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=leads.csv"},
+    )
+
+
+@app.get("/oportunidades/export.csv")
+async def export_oportunidades_csv(
+    db: AsyncSession = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+):
+    result = await db.execute(
+        select(Oportunidade)
+        .where(Oportunidade.tenant_id == tenant_id)
+        .options(joinedload(Oportunidade.lead))
+        .order_by(Oportunidade.estagio_funil)
+    )
+    ops = result.scalars().all()
+
+    output = io.StringIO()
+    w = csv.writer(output)
+    w.writerow(["Lead", "Estágio", "Valor (R$)", "Temperatura IA", "Status IA", "Última Interação"])
+    for op in ops:
+        lead_nome = op.lead.nome if op.lead else ""
+        ultima = op.ultima_interacao.strftime("%d/%m/%Y %H:%M") if op.ultima_interacao else ""
+        w.writerow([
+            lead_nome, op.estagio_funil,
+            f"{op.valor:.2f}" if op.valor else "0.00",
+            op.temperatura_ia or "", op.status_conversa_ia or "", ultima,
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue().encode("utf-8-sig")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=oportunidades.csv"},
+    )
 
 
 @app.get("/")

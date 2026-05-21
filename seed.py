@@ -28,8 +28,8 @@ async def seed_db():
             id=uuid.uuid4(),
             tenant_id=MOCK_TENANT_ID,
             nome="Admin LeadPulse",
-            email="admin@techcorp.com",
-            hashed_password=get_password_hash("admin123"),
+            email="admin@leadpulse.com",
+            hashed_password=get_password_hash("123456"),
             role=UserRole.ADMIN
         )
         db.add(admin)

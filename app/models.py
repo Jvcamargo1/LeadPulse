@@ -90,6 +90,7 @@ class Oportunidade(Base):
     estagio_funil: Mapped[str] = mapped_column(String, nullable=False)
     temperatura_ia: Mapped[Optional[str]] = mapped_column(String)
     status_conversa_ia: Mapped[Optional[str]] = mapped_column(String)
+    notas: Mapped[Optional[str]] = mapped_column(Text)
     ultima_interacao: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     
     # Relacionamentos

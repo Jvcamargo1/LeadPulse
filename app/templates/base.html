@@ -88,6 +88,31 @@
             --header-height: 60px;
         }
 
+        /* ============================================================
+           Dark mode — mesmos tokens, paleta invertida
+           ============================================================ */
+        [data-theme="dark"] {
+            --bg-page:    #0F0F0E;
+            --bg-surface: #1A1A18;
+            --bg-subtle:  #222220;
+            --bg-elevated:#1A1A18;
+
+            --ink-900: #F0F0EB;
+            --ink-700: #C8C8C2;
+            --ink-500: #8A8A83;
+            --ink-400: #5A5A55;
+            --ink-300: #3A3A37;
+            --ink-200: #2A2A28;
+            --ink-100: #1F1F1D;
+
+            --accent-100: #2A150D;
+            --accent-300: #7A3018;
+            --shadow-xs: 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.4);
+            --shadow-md: 0 8px 16px -4px rgba(0,0,0,0.5);
+            --shadow-lg: 0 24px 48px -12px rgba(0,0,0,0.6);
+        }
+
         * { box-sizing: border-box; }
 
         html, body {
@@ -662,6 +687,22 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/static/sw.js').catch(() => {});
         }
+
+        // Dark mode
+        (function() {
+            var saved = localStorage.getItem('lp-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+            document.getElementById('theme-icon') && (document.getElementById('theme-icon').textContent = saved === 'dark' ? '☀️' : '🌙');
+        })();
+
+        function toggleTheme() {
+            var current = document.documentElement.getAttribute('data-theme') || 'light';
+            var next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('lp-theme', next);
+            var icon = document.getElementById('theme-icon');
+            if (icon) icon.textContent = next === 'dark' ? '☀️' : '🌙';
+        }
     </script>
     {% block layout %}
     {% if user_logged_in is not defined or user_logged_in %}
@@ -740,7 +781,15 @@
                      style="display:flex; align-items:center; gap:10px; flex:1;">
                     <div class="user-avatar">…</div>
                 </div>
-                <button hx-post="/api/logout" class="logout-btn">Sair</button>
+                <div style="display:flex; gap:6px; margin-top:10px;">
+                    <button hx-post="/api/logout" class="logout-btn" style="flex:1;">Sair</button>
+                    <button onclick="toggleTheme()" title="Alternar modo escuro"
+                        style="border:1px solid var(--ink-200); border-radius:var(--radius-sm); background:none; cursor:pointer; padding:0 10px; color:var(--ink-500); font-size:14px; transition:all 0.15s;"
+                        onmouseover="this.style.background='var(--bg-subtle)'"
+                        onmouseout="this.style.background='none'">
+                        <span id="theme-icon">🌙</span>
+                    </button>
+                </div>
             </div>
         </aside>
 
