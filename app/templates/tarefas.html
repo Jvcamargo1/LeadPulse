@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% set active_page = 'tarefas' %}
+{% block title %}Tarefas · LeadPulse{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tarefas-tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 20px;
+        background: var(--bg-subtle);
+        border-radius: var(--radius-md);
+        padding: 4px;
+        width: fit-content;
+    }
+    .tab-btn {
+        padding: 6px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        color: var(--ink-500);
+        font-family: inherit;
+        transition: all 0.15s;
+    }
+    .tab-btn.active {
+        background: var(--bg-surface);
+        color: var(--ink-900);
+        box-shadow: var(--shadow-xs);
+    }
+
+    .tarefas-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .tarefa-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--ink-100);
+        border-radius: var(--radius-lg);
+        padding: 18px 20px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 16px;
+        align-items: start;
+        transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .tarefa-card:hover {
+        box-shadow: var(--shadow-sm);
+        border-color: var(--ink-200);
+    }
+    .tarefa-card.status-concluida {
+        opacity: 0.55;
+        background: var(--bg-subtle);
+    }
+
+    .urgency-bar {
+        width: 4px;
+        border-radius: 2px;
+        min-height: 60px;
+        align-self: stretch;
+    }
+    .urgency-atrasada { background: #B3261E; }
+    .urgency-hoje     { background: var(--accent-500); }
+    .urgency-futura   { background: var(--ink-200); }
+    .urgency-concluida{ background: #3F8B5E; }
+
+    .tarefa-lead {
+        font-family: var(--font-display);
+        font-size: 17px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        font-variation-settings: "opsz" 96;
+        color: var(--ink-900);
+        margin-bottom: 4px;
+    }
+
+    .tarefa-estagio {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--ink-400);
+        margin-bottom: 10px;
+    }
+
+    .tarefa-draft {
+        font-size: 13px;
+        color: var(--ink-500);
+        line-height: 1.5;
+        background: var(--bg-subtle);
+        border-left: 2px solid var(--accent-300);
+        padding: 8px 12px;
+        border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+        font-style: italic;
+    }
+
+    .tarefa-meta {
+        text-align: right;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+    }
+
+    .due-badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 999px;
+    }
+    .due-atrasada { background: #FCE8E6; color: #9B1F12; border: 1px solid #F2C2BD; }
+    .due-hoje     { background: var(--accent-100); color: var(--accent-900); border: 1px solid var(--accent-300); }
+    .due-futura   { background: var(--bg-subtle); color: var(--ink-500); border: 1px solid var(--ink-200); }
+    .due-concluida{ background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
+
+    .empty-state {
+        text-align: center;
+        padding: 72px 24px;
+        color: var(--ink-400);
+    }
+    .empty-state h3 {
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 500;
+        color: var(--ink-500);
+        margin-bottom: 8px;
+        font-variation-settings: "opsz" 96;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set pendentes = tarefas | selectattr('status', 'equalto', 'PENDENTE') | list %}
+{% set concluidas = tarefas | selectattr('status', 'equalto', 'CONCLUIDA') | list %}
+
+<header class="page-header">
+    <div>
+        <h1 class="page-title">Tarefas <span class="accent">de follow-up</span></h1>
+        <p class="page-subtitle">Rascunhos sugeridos pela IA aguardando sua aprovação e envio.</p>
+    </div>
+    <div class="flex gap-3 items-center">
+        {% if pendentes %}
+        <span class="badge badge-quente" style="font-size:12px; padding:4px 12px;">{{ pendentes|length }} pendente{% if pendentes|length != 1 %}s{% endif %}</span>
+        {% endif %}
+    </div>
+</header>
+
+<div class="page-body">
+
+    <!-- Tabs -->
+    <div class="tarefas-tabs">
+        <button class="tab-btn active" onclick="showTab(this,'pendentes')">
+            Pendentes ({{ pendentes|length }})
+        </button>
+        <button class="tab-btn" onclick="showTab(this,'concluidas')">
+            Concluídas ({{ concluidas|length }})
+        </button>
+    </div>
+
+    <!-- Pendentes -->
+    <div id="tab-pendentes" class="tarefas-list">
+        {% for tarefa in pendentes %}
+        {% set lead_nome = tarefa.oportunidade.lead.nome if tarefa.oportunidade and tarefa.oportunidade.lead else '—' %}
+        {% set estagio = tarefa.oportunidade.estagio_funil if tarefa.oportunidade else '—' %}
+        {% set op_id = tarefa.oportunidade.id if tarefa.oportunidade else '' %}
+
+        {% if tarefa.data_limite < now %}
+            {% set urgencia = 'atrasada' %}
+            {% set due_label = 'Atrasada · ' + tarefa.data_limite.strftime('%d/%m') %}
+        {% elif tarefa.data_limite.date() == now.date() %}
+            {% set urgencia = 'hoje' %}
+            {% set due_label = 'Vence hoje · ' + tarefa.data_limite.strftime('%H:%M') %}
+        {% else %}
+            {% set urgencia = 'futura' %}
+            {% set due_label = 'Vence ' + tarefa.data_limite.strftime('%d/%m às %H:%M') %}
+        {% endif %}
+
+        <div class="tarefa-card">
+            <div class="urgency-bar urgency-{{ urgencia }}"></div>
+            <div>
+                <div class="tarefa-lead">{{ lead_nome }}</div>
+                <div class="tarefa-estagio">{{ estagio }}</div>
+                {% if tarefa.rascunho_sugerido_ia %}
+                <div class="tarefa-draft">
+                    "{{ tarefa.rascunho_sugerido_ia[:160] }}{% if tarefa.rascunho_sugerido_ia|length > 160 %}…{% endif %}"
+                </div>
+                {% endif %}
+            </div>
+            <div class="tarefa-meta">
+                <span class="due-badge due-{{ urgencia }}">{{ due_label }}</span>
+                {% if op_id %}
+                <button
+                    hx-get="/ui/oportunidades/{{ op_id }}"
+                    hx-target="#modal-container"
+                    class="btn btn-primary"
+                    style="font-size: 12px; padding: 6px 12px;">
+                    Abrir oportunidade
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>Sem tarefas pendentes</h3>
+            <p>Quando a IA analisar uma conversa, as sugestões de resposta aparecerão aqui.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Concluídas -->
+    <div id="tab-concluidas" class="tarefas-list" style="display:none;">
+        {% for tarefa in concluidas %}
+        {% set lead_nome = tarefa.oportunidade.lead.nome if tarefa.oportunidade and tarefa.oportunidade.lead else '—' %}
+        {% set estagio = tarefa.oportunidade.estagio_funil if tarefa.oportunidade else '—' %}
+        {% set op_id = tarefa.oportunidade.id if tarefa.oportunidade else '' %}
+
+        <div class="tarefa-card status-concluida">
+            <div class="urgency-bar urgency-concluida"></div>
+            <div>
+                <div class="tarefa-lead">{{ lead_nome }}</div>
+                <div class="tarefa-estagio">{{ estagio }}</div>
+                {% if tarefa.rascunho_sugerido_ia %}
+                <div class="tarefa-draft">
+                    "{{ tarefa.rascunho_sugerido_ia[:160] }}{% if tarefa.rascunho_sugerido_ia|length > 160 %}…{% endif %}"
+                </div>
+                {% endif %}
+            </div>
+            <div class="tarefa-meta">
+                <span class="due-badge due-concluida">Enviado</span>
+                {% if op_id %}
+                <button
+                    hx-get="/ui/oportunidades/{{ op_id }}"
+                    hx-target="#modal-container"
+                    class="btn btn-secondary"
+                    style="font-size: 12px; padding: 6px 12px;">
+                    Ver oportunidade
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>Nenhuma tarefa concluída</h3>
+            <p>As tarefas enviadas aparecerão aqui como histórico.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<div id="modal-container"></div>
+
+<script>
+    function showTab(btn, tab) {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('tab-pendentes').style.display  = tab === 'pendentes'  ? 'flex' : 'none';
+        document.getElementById('tab-concluidas').style.display = tab === 'concluidas' ? 'flex' : 'none';
+    }
+</script>
+{% endblock %}

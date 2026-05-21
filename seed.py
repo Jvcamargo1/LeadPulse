@@ -23,7 +23,18 @@ async def seed_db():
         )
         db.add(tenant)
         
-        # 2. Cria um Usuário (Vendedor)
+        # 2a. Cria o Administrador
+        admin = Usuario(
+            id=uuid.uuid4(),
+            tenant_id=MOCK_TENANT_ID,
+            nome="Admin LeadPulse",
+            email="admin@leadpulse.com",
+            hashed_password=get_password_hash("123456"),
+            role=UserRole.ADMIN
+        )
+        db.add(admin)
+
+        # 2b. Cria um Usuário Vendedor
         vendedor_id = uuid.uuid4()
         vendedor = Usuario(
             id=vendedor_id,

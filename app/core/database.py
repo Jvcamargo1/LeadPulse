@@ -1,4 +1,5 @@
 import os
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.models import Base
 
@@ -17,5 +18,8 @@ AsyncSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=e
 
 async def init_db():
     async with engine.begin() as conn:
-        # Cria todas as tabelas (definidas em app.models) se não existirem
         await conn.run_sync(Base.metadata.create_all)
+        # Adiciona colunas novas sem quebrar bancos existentes
+        await conn.execute(text(
+            "ALTER TABLE oportunidade ADD COLUMN IF NOT EXISTS notas TEXT"
+        ))
